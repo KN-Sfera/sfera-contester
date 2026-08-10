@@ -1,0 +1,21 @@
+{
+  "slug": "echo",
+  "title": "Echo",
+  "statement": "Wczytaj jedną linię tekstu i wypisz ją bez zmian.\n\nPrzydatne do sprawdzenia stdin/stdout w playgroundzie.",
+  "timeLimit": 1,
+  "memoryLimit": 64000,
+  "testCases": [
+    {
+      "id": "sample-1",
+      "input": "hello sfera\n",
+      "expectedOutput": "hello sfera\n",
+      "isSample": true
+    },
+    {
+      "id": "sample-2",
+      "input": "42\n",
+      "expectedOutput": "42\n",
+      "isSample": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "slug": "a-plus-b",
+  "title": "A + B",
+  "statement": "Wczytaj dwie liczby całkowite A i B (oddzielone spacją) i wypisz ich sumę.\n\nWejście: jedna linia `A B`.\nWyjście: jedna liczba — suma A+B.",
+  "timeLimit": 2,
+  "memoryLimit": 128000,
+  "testCases": [
+    {
+      "id": "sample-1",
+      "input": "1 2\n",
+      "expectedOutput": "3\n",
+      "isSample": true
+    },
+    {
+      "id": "sample-2",
+      "input": "10 -3\n",
+      "expectedOutput": "7\n",
+      "isSample": true
+    }
+  ]
+}
