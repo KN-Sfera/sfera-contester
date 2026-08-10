@@ -1,0 +1,21 @@
+{
+  "name": "sfera",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run build -w @sfera/shared && npm run dev -w @sfera/api",
+    "dev:web": "npm run build -w @sfera/shared && npm run dev -w @sfera/web",
+    "build": "npm run build -w @sfera/shared && npm run build -w @sfera/api && npm run build -w @sfera/web",
+    "build:shared": "npm run build -w @sfera/shared",
+    "build:api": "npm run build -w @sfera/api",
+    "build:web": "npm run build -w @sfera/web",
+    "smoke:judge0": "bash scripts/smoke-judge0.sh"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "sharp@0.34.5": true
+  }
+}

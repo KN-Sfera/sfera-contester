@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.git
+*.log
+.api-test.*
+.env
+.env.local
+.DS_Store
+apps/web/.next
+packages/shared/dist
