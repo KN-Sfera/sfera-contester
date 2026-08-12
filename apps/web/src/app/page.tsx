@@ -32,7 +32,7 @@ const DEFAULT_SOURCES: Record<LanguageId, string> = {
 
 function verdictColor(verdict: Verdict | null): string {
   if (!verdict) return "var(--muted)";
-  if (verdict === "ACC" || verdict === "OK") return "var(--ok)";
+  if (verdict === "AC" || verdict === "OK") return "var(--ok)";
   if (verdict === "WA") return "var(--wa)";
   if (verdict === "CE") return "var(--ce)";
   return "var(--err)";
@@ -347,11 +347,11 @@ export default function HomePage() {
               )}
               {samplesResult?.results.map((caseResult) => (
                 <div
-                  key={caseResult.testCaseId}
+                  key={caseResult.ordinal}
                   className="rounded border border-[var(--border)] bg-[var(--bg-elevated)] p-3"
                 >
                   <div className="mb-2 flex gap-3 text-xs">
-                    <span>{caseResult.testCaseId}</span>
+                    <span>Test {caseResult.ordinal}</span>
                     <span style={{ color: verdictColor(caseResult.verdict) }}>
                       {caseResult.verdict}
                     </span>

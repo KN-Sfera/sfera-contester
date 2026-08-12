@@ -6,16 +6,32 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "npm run build -w @sfera/shared && npm run dev -w @sfera/api",
+    "build:libs": "npm run build -w @sfera/shared && npm run build -w @sfera/db && npm run build -w @sfera/judge0 && npm run build -w @sfera/queue",
+    "dev:api": "npm run build:libs && npm run dev -w @sfera/api",
     "dev:web": "npm run build -w @sfera/shared && npm run dev -w @sfera/web",
-    "build": "npm run build -w @sfera/shared && npm run build -w @sfera/api && npm run build -w @sfera/web",
+    "dev:worker": "npm run build:libs && npm run dev -w @sfera/worker",
+    "build": "npm run build:libs && npm run build -w @sfera/api && npm run build -w @sfera/worker && npm run build -w @sfera/web",
     "build:shared": "npm run build -w @sfera/shared",
+    "build:db": "npm run build -w @sfera/db",
+    "db:generate": "npm run db:generate -w @sfera/db",
+    "db:migrate": "npm run db:migrate -w @sfera/db",
+    "seed:problems": "npm run build:libs && npm run seed:problems -w @sfera/api",
+    "seed:admin": "npm run build:libs && npm run seed:admin -w @sfera/api",
     "build:api": "npm run build -w @sfera/api",
     "build:web": "npm run build -w @sfera/web",
-    "smoke:judge0": "bash scripts/smoke-judge0.sh"
+    "typecheck": "npm run build:libs && tsc -p packages/db/tsconfig.test.json && tsc -p packages/judge0/tsconfig.test.json && tsc -p apps/api/tsconfig.test.json && tsc -p apps/worker/tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "smoke:judge0": "bash scripts/smoke-judge0.sh",
+    "smoke:e2e": "bash scripts/smoke-e2e.sh"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
     "sharp@0.34.5": true
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^12.1.0",
+    "vitest": "^3.2.7"
   }
 }

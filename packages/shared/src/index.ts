@@ -1,3 +1,6 @@
+export * from "./scoring/icpc.js";
+export * from "./scoring/contest-state.js";
+
 export const LANGUAGES = [
   {
     id: "c",
@@ -35,7 +38,7 @@ export type LanguageId = (typeof LANGUAGES)[number]["id"];
 
 export type Verdict =
   | "OK"
-  | "ACC"
+  | "AC"
   | "WA"
   | "CE"
   | "RE"
@@ -66,6 +69,8 @@ export interface RunResult {
 
 export interface ProblemTestCase {
   id: string;
+  /** Kolejność oceniania, liczona od 1. To ją widzi zawodnik ("Test 3/20"). */
+  ordinal: number;
   input: string;
   expectedOutput: string;
   isSample: boolean;
@@ -90,7 +95,8 @@ export interface ProblemSummary {
 }
 
 export interface SampleRunCaseResult {
-  testCaseId: string;
+  /** Numer testu, nie jego id — identyfikator z bazy nic zawodnikowi nie mówi. */
+  ordinal: number;
   verdict: Verdict;
   status: string;
   stdout: string;
