@@ -1,5 +1,6 @@
 # Sfera Contester
 
+
 Self-hosted contester algorytmiczny: konta, trwała historia submitów, asynchroniczne ocenianie
 przez kolejkę, panel admina do definiowania zadań i testów, zestawy zadań oraz moduł konkursowy
 z regułami ICPC i leaderboardem na żywo. Kod wykonuje się w **Judge0 CE** (Isolate w Dockerze).
