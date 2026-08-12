@@ -1,4 +1,4 @@
-# Sfera — Sandbox MVP
+# Sfera - Contester
 
 Wewnętrzny playground do odpalania i prymitywnego testowania kodu algorytmicznego.
 Kod wykonuje się w **Judge0 CE** (Isolate w Dockerze).
