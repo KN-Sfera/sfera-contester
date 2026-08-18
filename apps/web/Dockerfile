@@ -6,7 +6,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json ./
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
+# Provide stubs so npm workspaces resolve (api references @sfera/db etc.)
+COPY packages/db/package.json ./packages/db/package.json
+COPY packages/judge0/package.json ./packages/judge0/package.json
+COPY packages/queue/package.json ./packages/queue/package.json
 COPY apps/api/package.json ./apps/api/package.json
+COPY apps/worker/package.json ./apps/worker/package.json
 RUN npm install && npm run build -w @sfera/shared && npm run build -w @sfera/web
 
 FROM node:22-bookworm-slim AS runner
