@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-// Testy importują @sfera/shared prosto ze źródeł, żeby `npm test` nie wymagał
-// wcześniejszego `npm run build:shared`.
+// Tests import @sfera/shared straight from source, so `npm test` does not
+// require a prior `npm run build:shared`.
 const alias = {
   "@sfera/shared": fileURLToPath(
     new URL("./packages/shared/src/index.ts", import.meta.url),
@@ -27,7 +27,7 @@ export default defineConfig({
           root: "packages/shared",
           environment: "node",
           include: ["src/**/*.test.ts"],
-          // Te wymagają Dockera — lecą w vitest.integration.config.ts.
+          // These need Docker — they run from vitest.integration.config.ts.
           exclude: ["src/**/*.integration.test.ts"],
         },
       },
@@ -48,7 +48,7 @@ export default defineConfig({
           root: "apps/api",
           environment: "node",
           include: ["src/**/*.test.ts"],
-          // Te wymagają Dockera — lecą w vitest.integration.config.ts.
+          // These need Docker — they run from vitest.integration.config.ts.
           exclude: ["src/**/*.integration.test.ts"],
           setupFiles: ["./test/setup-env.ts"],
         },
@@ -61,6 +61,26 @@ export default defineConfig({
           environment: "node",
           include: ["src/**/*.test.ts"],
           exclude: ["src/**/*.integration.test.ts"],
+        },
+      },
+      {
+        // JSX is transformed by the esbuild built into Vite. `@vitejs/plugin-react`
+        // would only provide Fast Refresh, which tests never use, and would
+        // force Vite 8 while Vitest sits on 7.
+        esbuild: { jsx: "automatic" },
+        resolve: {
+          alias: {
+            ...alias,
+            "@": fileURLToPath(new URL("./apps/web/src", import.meta.url)),
+          },
+        },
+        test: {
+          name: "web",
+          root: "apps/web",
+          // jsdom, because we test components and hooks, not just functions.
+          environment: "jsdom",
+          include: ["src/**/*.test.{ts,tsx}"],
+          setupFiles: ["./test/setup.ts"],
         },
       },
     ],
