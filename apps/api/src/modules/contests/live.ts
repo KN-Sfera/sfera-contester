@@ -10,19 +10,20 @@ interface Watcher {
 }
 
 export interface BroadcasterOptions {
-  /** Co ile przeliczać ranking. */
+  /** How often to recompute the ranking. */
   intervalMs?: number;
 }
 
 /**
- * Rozsyła ranking do podłączonych klientów.
+ * Broadcasts the ranking to connected clients.
  *
- * Przelicza go **raz na konkurs i wariant widoku**, a nie raz na klienta —
- * przy stu zawodnikach patrzących na tablicę różnica to jedno zapytanie na cykl
- * zamiast stu. Wysyła tylko wtedy, gdy wynik faktycznie się zmienił, więc
- * spokojny fragment konkursu nie generuje ruchu.
+ * It recomputes **once per contest and view variant**, not once per client —
+ * with a hundred contestants watching the scoreboard that is one query per
+ * cycle instead of a hundred. It sends only when the result actually changed, so
+ * a quiet stretch of a contest generates no traffic.
  *
- * Warianty są dwa, bo admin widzi przez zamrożenie, a zawodnik nie.
+ * There are two variants, because an admin sees through the freeze and a
+ * contestant does not.
  */
 export class LeaderboardBroadcaster {
   private readonly watchers = new Map<string, Watcher>();
@@ -51,7 +52,7 @@ export class LeaderboardBroadcaster {
           void this.tick(key, contest, options.isAdmin);
         }, this.intervalMs),
       };
-      // Nie blokuj zamknięcia procesu tylko dlatego, że ktoś patrzy na tablicę.
+      // Do not hold the process open just because somebody is watching the board.
       created.timer.unref?.();
       this.watchers.set(key, created);
       watcher = created;
@@ -70,7 +71,7 @@ export class LeaderboardBroadcaster {
     };
   }
 
-  /** Wymusza natychmiastowe przeliczenie — używane przy podłączeniu klienta. */
+  /** Forces an immediate recompute — used when a client connects. */
   async push(contest: ContestRow, options: { isAdmin: boolean }): Promise<LeaderboardView> {
     return getLeaderboard(this.db, contest, options);
   }
@@ -93,11 +94,11 @@ export class LeaderboardBroadcaster {
         listener(view);
       }
     } catch {
-      // Chwilowy błąd bazy nie może zrywać strumieni — spróbujemy za cykl.
+      // A transient database error must not tear down streams — we retry next cycle.
     }
   }
 
-  /** Zatrzymuje wszystkie zegary. Wołane przy zamykaniu aplikacji. */
+  /** Stops every timer. Called when the application shuts down. */
   close(): void {
     for (const watcher of this.watchers.values()) {
       clearInterval(watcher.timer);

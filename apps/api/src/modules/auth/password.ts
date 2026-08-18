@@ -1,9 +1,9 @@
 import { hash, verify } from "@node-rs/argon2";
 
 /**
- * Parametry argon2id zgodne z zaleceniem OWASP (19 MiB, 2 iteracje, 1 wątek).
- * Świadomie nie ruszamy ich w dół — logowanie zdarza się rzadko, a to jedyna
- * bariera między wyciekiem bazy a hasłami zawodników.
+ * argon2id parameters per the OWASP recommendation (19 MiB, 2 iterations,
+ * 1 thread). We deliberately do not lower them — signing in is rare, and this
+ * is the only barrier between a database leak and the contestants' passwords.
  */
 const OPTIONS = {
   memoryCost: 19_456,
@@ -24,7 +24,7 @@ export async function verifyPassword(
   try {
     return await verify(passwordHash, plain, OPTIONS);
   } catch {
-    // Uszkodzony hash w bazie to nie powód, żeby wywalić logowanie 500-tką.
+    // A corrupted hash in the database is no reason to fail sign-in with a 500.
     return false;
   }
 }

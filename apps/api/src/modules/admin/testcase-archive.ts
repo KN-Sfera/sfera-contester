@@ -10,7 +10,7 @@ export class InvalidArchiveError extends Error {
 
 const decoder = new TextDecoder("utf-8", { fatal: false });
 
-/** Ile pierwszych par traktujemy jako sample, gdy paczka tego nie określa. */
+/** How many leading pairs count as samples when the archive does not say. */
 export const DEFAULT_SAMPLE_COUNT = 1;
 
 interface ArchiveEntry {
@@ -20,11 +20,11 @@ interface ArchiveEntry {
 }
 
 /**
- * Rozpakowuje paczkę testów w konwencji ICPC: pary `1.in`/`1.out`.
+ * Unpacks a test archive in the ICPC convention: `1.in`/`1.out` pairs.
  *
- * Akceptuje też `.txt` i `.ans` (spotykane w archiwach), katalogi i zagnieżdżenia —
- * liczy się sama nazwa pliku. Sortowanie jest naturalne, żeby `10.in` nie lądowało
- * między `1.in` a `2.in`.
+ * It also accepts `.txt` and `.ans` (common in archives), directories and
+ * nesting — only the file name matters. Sorting is natural, so that `10.in`
+ * does not land between `1.in` and `2.in`.
  */
 export function parseTestCaseArchive(
   archive: Uint8Array,
@@ -35,7 +35,7 @@ export function parseTestCaseArchive(
     files = unzipSync(archive);
   } catch (error) {
     throw new InvalidArchiveError(
-      `Nie udało się odczytać archiwum: ${
+      `Could not read the archive: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -44,7 +44,7 @@ export function parseTestCaseArchive(
   const entries: ArchiveEntry[] = [];
 
   for (const [path, content] of Object.entries(files)) {
-    // Katalogi i śmieci systemowe.
+    // Directories and system clutter.
     if (path.endsWith("/") || path.includes("__MACOSX")) continue;
 
     const name = path.split("/").pop() ?? path;
@@ -64,7 +64,7 @@ export function parseTestCaseArchive(
 
   if (entries.length === 0) {
     throw new InvalidArchiveError(
-      "Archiwum nie zawiera plików .in/.out (ani .txt/.ans)",
+      "The archive contains no .in/.out files (nor .txt/.ans)",
     );
   }
 
@@ -77,7 +77,7 @@ export function parseTestCaseArchive(
   const orphans = [...inputs.keys()].filter((base) => !outputs.has(base));
   if (orphans.length > 0) {
     throw new InvalidArchiveError(
-      `Brakuje plików z oczekiwanym wyjściem dla: ${naturalSort(orphans)
+      `Missing expected-output files for: ${naturalSort(orphans)
         .slice(0, 10)
         .join(", ")}`,
     );
@@ -93,7 +93,7 @@ export function parseTestCaseArchive(
   }));
 }
 
-/** `2.in` przed `10.in` — porównanie leksykalne dałoby odwrotnie. */
+/** `2.in` before `10.in` — a lexical comparison would order them the other way. */
 function naturalSort(values: string[]): string[] {
   return [...values].sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),

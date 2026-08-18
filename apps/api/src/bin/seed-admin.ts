@@ -4,8 +4,8 @@ import { createUser, findUserByEmail } from "../modules/auth/repository.js";
 import { loadOpsEnv } from "./ops-env.js";
 
 /**
- * Zakłada pierwsze konto administratora. Przy REGISTRATION_MODE=invite to
- * jedyna droga do wejścia do systemu.
+ * Creates the first administrator account. With REGISTRATION_MODE=invite this
+ * is the only way into the system.
  *
  * ADMIN_EMAIL=... ADMIN_PASSWORD=... ADMIN_NAME=... npm run seed:admin
  */
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
-    console.error(`ADMIN_PASSWORD musi mieć min. ${MIN_PASSWORD_LENGTH} znaków`);
+    console.error(`ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters`);
     process.exit(1);
   }
 
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   try {
     const existing = await findUserByEmail(handle.db, email);
     if (existing) {
-      console.log(`Konto ${email} już istnieje — nic nie robię`);
+      console.log(`Account ${email} already exists — nothing to do`);
       return;
     }
 

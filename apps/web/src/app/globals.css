@@ -1,38 +1,329 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+/*
+ * The visual system: ink and paper.
+ *
+ * The interface chrome is strictly two-tone. Colour carries exactly two
+ * pieces of information — the verdict and the problem's identity (its
+ * balloon) — so every coloured mark on screen means something. Details:
+ * docs/FRONTEND-PLAN.md.
+ */
 
 :root {
-  --bg: #0f1419;
-  --bg-elevated: #1a2332;
-  --bg-panel: #151c27;
-  --border: #2a3544;
-  --text: #e8eef6;
-  --muted: #8b9bb0;
-  --accent: #3d9cf0;
-  --accent-dim: #2563a8;
-  --ok: #3ecf8e;
-  --wa: #f0b429;
-  --err: #f07178;
-  --ce: #d4a574;
+  /* Ink and paper — the dark theme (default). Warm press black, not navy:
+     this should read as a print, not as a dashboard. */
+  --paper: #131412;
+  --paper-raised: #1a1b18;
+  --paper-sunken: #0e0f0d;
+  --ink: #edebe4;
+  --ink-muted: #9b9a92;
+  --ink-faint: #6a6a63;
+  /*
+   * Two rules, two jobs — and this is WCAG 1.4.11, not taste. `--rule` is
+   * decorative: it separates rows and sections whose removal breaks nothing,
+   * so the contrast threshold does not apply to it. `--rule-strong` draws
+   * **control boundaries** — fields, selects — and those must hold 3:1
+   * against the background, or you cannot see where a field begins. The
+   * values below are computed, not eyeballed: src/app/tokens.test.ts guards them.
+   */
+  --rule: rgb(237 235 228 / 0.14);
+  --rule-strong: rgb(237 235 228 / 0.42);
+  --selection: rgb(237 235 228 / 0.18);
+
+  /* Verdicts. RE gets purple rather than another red — "the program
+     crashed" is different information from "it computed the wrong thing",
+     and on the test strip the two must be distinguishable at a glance. */
+  --v-ac: #5cc48a;
+  --v-wa: #e8735f;
+  --v-tle: #d9a441;
+  --v-mle: #d9a441;
+  --v-re: #b08bd9;
+  --v-ce: #a79e90;
+  --v-se: #6a6a63;
+  --v-ok: #9b9a92;
+
+  /* Balloon inks. Fixed, assigned to a problem by hashing its slug, so a
+     problem's colour is the same in every view. The order is chosen so that
+     neighbouring indices are as different as possible. */
+  --balloon-0: #d64545;
+  --balloon-1: #e08a2e;
+  --balloon-2: #e3c13c;
+  --balloon-3: #7fb53f;
+  --balloon-4: #35a06b;
+  --balloon-5: #2e9ba8;
+  --balloon-6: #3d74c4;
+  --balloon-7: #5b54b8;
+  --balloon-8: #9b4fb0;
+  --balloon-9: #c94e86;
+  --balloon-10: #8a6a45;
+  --balloon-11: #c9c3b8;
+
+  /* Durations and curves. The only place they are defined — components do
+     not repeat them. */
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 520ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+
+  --radius: 2px;
+  --measure: 68ch;
+
+  /*
+   * The composite font stacks have to be built here, not in `@theme inline`.
+   * By design `inline` emits no variables — it inlines their values into the
+   * utility classes — so `var(--font-display)` used in our own CSS would have
+   * nothing to resolve. `--font-fraunces` and friends are set by `next/font`
+   * through classes on the <html> element.
+   */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-reading: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  color-scheme: dark;
 }
 
-* {
-  box-sizing: border-box;
+[data-theme="light"] {
+  /* Newsprint, deliberately pulled away from the cream #F4F1EA. */
+  --paper: #efede6;
+  --paper-raised: #f7f6f1;
+  --paper-sunken: #e4e1d8;
+  --ink: #191a17;
+  --ink-muted: #5e5f58;
+  --ink-faint: #7e7f77;
+  --rule: rgb(25 26 23 / 0.16);
+  --rule-strong: rgb(25 26 23 / 0.55);
+  --selection: rgb(25 26 23 / 0.14);
+
+  /* On light paper the same hues do not hold AA contrast — the verdict
+     inks darken. */
+  --v-ac: #256c45;
+  --v-wa: #a93826;
+  --v-tle: #8a5d0c;
+  --v-mle: #8a5d0c;
+  --v-re: #5f3f91;
+  --v-ce: #6b6357;
+  --v-se: #7e7f77;
+  --v-ok: #5e5f58;
+
+  --balloon-2: #9c7d0c;
+  --balloon-11: #8d877a;
+
+  color-scheme: light;
 }
 
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background:
-    radial-gradient(ellipse 80% 50% at 20% -10%, #1a3a5c 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 90% 10%, #1e2a40 0%, transparent 50%),
-    var(--bg);
-  color: var(--text);
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+
+  --color-v-ac: var(--v-ac);
+  --color-v-wa: var(--v-wa);
+  --color-v-tle: var(--v-tle);
+  --color-v-mle: var(--v-mle);
+  --color-v-re: var(--v-re);
+  --color-v-ce: var(--v-ce);
+  --color-v-se: var(--v-se);
+  --color-v-ok: var(--v-ok);
+
+  --radius-none: 0;
+  --radius-sm: 2px;
+
+  /* The type scale. 16px base, ratio ~1.25. */
+  --text-micro: 0.6875rem;
+  --text-label: 0.75rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-subhead: 1.25rem;
+  --text-heading: 1.563rem;
+  --text-title: 1.953rem;
+  --text-display: 2.441rem;
+  --text-display-lg: 3.052rem;
 }
 
-button,
-textarea,
-select {
-  font: inherit;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: var(--rule);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Focus is always visible. `outline: none` with no replacement is a bug
+     in this project — a contester is driven from the keyboard. */
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  a {
+    color: inherit;
+    text-decoration-color: var(--rule-strong);
+    text-underline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Label — mono small caps. The primary carrier of metadata in this
+     interface: column headers, field captions, section names. */
+  .label {
+    font-size: var(--text-label);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  .label-micro {
+    font-size: var(--text-micro);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* The problem statement. The only place in the app set in a reading face. */
+  .prose-statement {
+    font-family: var(--font-reading);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    max-width: var(--measure);
+    color: var(--ink);
+  }
+
+  .prose-statement > * + * {
+    margin-top: 1em;
+  }
+
+  .prose-statement h2,
+  .prose-statement h3 {
+    font-family: var(--font-display);
+    margin-top: 1.6em;
+    margin-bottom: 0.5em;
+  }
+
+  .prose-statement h2 {
+    font-size: var(--text-subhead);
+  }
+
+  .prose-statement h3 {
+    font-size: var(--text-body);
+  }
+
+  .prose-statement code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--paper-sunken);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 0.05em 0.3em;
+  }
+
+  .prose-statement pre {
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    background: var(--paper-sunken);
+    border: 1px solid var(--rule);
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+  }
+
+  .prose-statement pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  .prose-statement ul,
+  .prose-statement ol {
+    padding-left: 1.4em;
+  }
+
+  .prose-statement li + li {
+    margin-top: 0.35em;
+  }
+
+  .prose-statement table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+  }
+
+  .prose-statement th,
+  .prose-statement td {
+    border: 1px solid var(--rule);
+    padding: 0.35rem 0.6rem;
+    text-align: left;
+  }
+
+  .prose-statement blockquote {
+    border-left: 2px solid var(--rule-strong);
+    padding-left: 1em;
+    color: var(--ink-muted);
+  }
+}
+
+/* A hard requirement from roadmap 3.3: under `reduce`, motion goes away —
+   state changes do not. The lib/motion facade does the same for JS-driven
+   animations; this rule strips the CSS transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -63,8 +63,8 @@ services:
     <<: *default-logging
     restart: unless-stopped
 
-  # Baza aplikacyjna — świadomie osobna od judge0-db. Judge0 zarządza swoim
-  # schematem sam i nasze migracje nie mają się tam mieszać.
+  # The application database — deliberately separate from judge0-db. Judge0
+  # manages its own schema and our migrations have no business in it.
   app-db:
     image: postgres:16.2
     environment:
@@ -73,7 +73,7 @@ services:
       POSTGRES_DB: sfera
     volumes:
       - app-db-data:/var/lib/postgresql/data
-    # Tylko localhost — do podglądu przez psql podczas developmentu.
+    # Localhost only — for inspecting with psql during development.
     ports:
       - "127.0.0.1:5433:5432"
     healthcheck:
@@ -86,14 +86,14 @@ services:
     <<: *default-logging
     restart: unless-stopped
 
-  # Kolejka oceniania — osobny Redis od judge0-redis, żeby nasze zadania nie
-  # mieszały się z wewnętrzną kolejką Judge0.
+  # The judging queue — a separate Redis from judge0-redis, so our jobs do not
+  # mix with Judge0's internal queue.
   app-redis:
     image: redis:7.2.4
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - app-redis-data:/data
-    # Tylko localhost — dla dev poza Dockerem i podglądu przez redis-cli.
+    # Localhost only — for development outside Docker and for redis-cli.
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -114,7 +114,7 @@ services:
       DATABASE_URL: postgres://sfera:sfera@app-db:5432/sfera
       REDIS_URL: redis://app-redis:6379
       JUDGE0_URL: http://judge0-server:2358
-      # Sufit wyznacza liczba workerów Judge0 — wyżej tylko zapycha sandbox.
+      # The ceiling is the number of Judge0 workers — higher only floods the sandbox.
       JUDGE_CONCURRENCY: ${JUDGE_CONCURRENCY:-2}
     networks:
       - sfera
@@ -141,10 +141,10 @@ services:
       PROBLEMS_DIR: /app/data/problems
       DATABASE_URL: postgres://sfera:sfera@app-db:5432/sfera
       REDIS_URL: redis://app-redis:6379
-      # Brak wartości domyślnej celowo — compose odmówi startu bez sekretu w .env.
+      # No default on purpose — compose refuses to start without the secret in .env.
       JWT_SECRET: ${JWT_SECRET:?ustaw JWT_SECRET w pliku .env (min. 32 znaki)}
       REGISTRATION_MODE: ${REGISTRATION_MODE:-open}
-      # Lokalnie stoimy na HTTP, więc cookie nie może być secure. Przy deployu
+      # We run on HTTP locally, so the cookie cannot be secure. When deploying
       # za HTTPS ustaw true.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:

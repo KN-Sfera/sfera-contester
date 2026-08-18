@@ -22,8 +22,8 @@ export interface FakeJudge0 extends Judge0Client {
 }
 
 /**
- * Judge0 zastąpiony skryptem werdyktów — pozwala sprawdzić logikę oceniania
- * (przerwanie na pierwszym błędzie, agregacja) bez odpalania sandboxa.
+ * Judge0 replaced by a scripted list of verdicts — it lets us check the judging
+ * logic (stopping at the first failure, aggregation) without booting a sandbox.
  */
 export function createFakeJudge0(
   verdicts: (Verdict | RunResult)[],

@@ -1,7 +1,7 @@
 {
   "slug": "a-plus-b",
   "title": "A + B",
-  "statement": "Wczytaj dwie liczby całkowite A i B (oddzielone spacją) i wypisz ich sumę.\n\nWejście: jedna linia `A B`.\nWyjście: jedna liczba — suma A+B.",
+  "statement": "Read two integers A and B (separated by a space) and print their sum.\n\nInput: a single line `A B`.\nOutput: one number — the sum A+B.",
   "timeLimit": 2,
   "memoryLimit": 128000,
   "testCases": [

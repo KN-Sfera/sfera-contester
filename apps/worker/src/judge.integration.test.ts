@@ -39,7 +39,7 @@ beforeAll(async () => {
     .values({
       slug: "worker-problem",
       title: "A + B",
-      statement: "Wypisz sumę.",
+      statement: "Print the sum.",
       timeLimit: 2,
       memoryLimit: 128000,
       isPublic: true,
@@ -82,7 +82,7 @@ function loadResults(id: string) {
 }
 
 describe("judgeSubmission", () => {
-  it("przy komplecie AC zapisuje wynik każdego testu", async () => {
+  it("records a result for every test when all pass", async () => {
     const id = await newSubmission();
     const judge0 = createFakeJudge0(["AC", "AC", "AC"]);
     const progress = createRecordingProgressBus();
@@ -97,14 +97,14 @@ describe("judgeSubmission", () => {
     expect(await loadResults(id)).toHaveLength(3);
   });
 
-  it("przerywa na pierwszym błędzie i nie odpala dalszych testów", async () => {
+  it("stops at the first failure and never runs the later tests", async () => {
     const id = await newSubmission();
     const judge0 = createFakeJudge0(["AC", "WA", "AC"]);
     const progress = createRecordingProgressBus();
 
     await judgeSubmission({ db, judge0, progress }, id);
 
-    // Trzeci test nie poszedł do Judge0 — to jest ta oszczędność, o którą chodzi.
+    // The third test never reached Judge0 — that is the saving we are after.
     expect(judge0.calls).toHaveLength(2);
 
     const submission = await loadSubmission(id);
@@ -113,7 +113,7 @@ describe("judgeSubmission", () => {
     expect(await loadResults(id)).toHaveLength(2);
   });
 
-  it("przekazuje limity zadania do Judge0", async () => {
+  it("passes the problem limits through to Judge0", async () => {
     const id = await newSubmission();
     const judge0 = createFakeJudge0(["AC", "AC", "AC"]);
 
@@ -130,7 +130,7 @@ describe("judgeSubmission", () => {
     });
   });
 
-  it("publikuje postęp: start, każdy test, koniec", async () => {
+  it("publishes progress: started, each test, done", async () => {
     const id = await newSubmission();
     const progress = createRecordingProgressBus();
 
@@ -147,7 +147,7 @@ describe("judgeSubmission", () => {
     ]);
   });
 
-  it("zapisuje najgorszy czas i pamięć", async () => {
+  it("records the worst time and memory", async () => {
     const id = await newSubmission();
     const judge0 = createFakeJudge0([
       { verdict: "AC", status: "AC", stdout: "", stderr: "", compileOutput: "", time: "0.100", memory: 2048, exitCode: 0, message: null },
@@ -165,7 +165,7 @@ describe("judgeSubmission", () => {
     expect(submission.maxMemory).toBe(4096);
   });
 
-  it("ponowne ocenianie nadpisuje poprzednie wyniki", async () => {
+  it("overwrites earlier results when re-judging", async () => {
     const id = await newSubmission();
 
     await judgeSubmission(
@@ -188,7 +188,7 @@ describe("judgeSubmission", () => {
     expect((await loadSubmission(id)).verdict).toBe("AC");
   });
 
-  it("nieistniejący submit rzuca błędem nienadającym się do ponowienia", async () => {
+  it("throws a non-retryable error for a submission that does not exist", async () => {
     await expect(
       judgeSubmission(
         {
@@ -201,7 +201,7 @@ describe("judgeSubmission", () => {
     ).rejects.toThrow(SubmissionNotFoundError);
   });
 
-  it("awaria Judge0 idzie w górę, żeby BullMQ mogło ponowić", async () => {
+  it("lets a Judge0 failure propagate so BullMQ can retry", async () => {
     const id = await newSubmission();
     const judge0 = createFakeJudge0([]);
     judge0.execute = async () => {
@@ -213,7 +213,7 @@ describe("judgeSubmission", () => {
     ).rejects.toThrow("Cannot reach Judge0");
 
     // Submit zostaje w RUNNING — o oznaczeniu FAILED decyduje worker po
-    // wyczerpaniu ponowień, nie pojedyncza nieudana próba.
+    // the retries are exhausted, not by a single failed attempt.
     expect((await loadSubmission(id)).status).toBe("RUNNING");
   });
 });

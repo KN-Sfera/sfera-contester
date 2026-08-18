@@ -6,7 +6,7 @@ import { createSubmission } from "./repository.js";
 
 export class ProblemNotAvailableError extends Error {
   constructor(slug: string) {
-    super(`Zadanie ${slug} nie istnieje lub nie jest opublikowane`);
+    super(`Problem ${slug} does not exist or is not published`);
     this.name = "ProblemNotAvailableError";
   }
 }
@@ -19,8 +19,8 @@ export interface SubmitInput {
 }
 
 /**
- * Zapisuje submit i wrzuca go do kolejki. Zwraca natychmiast — ocenianie dzieje
- * się w workerze, request nie czeka na Judge0.
+ * Stores the submission and enqueues it. Returns immediately — judging
+ * happens in the worker; the request does not wait for Judge0.
  */
 export async function submit(
   db: Database,
@@ -46,8 +46,8 @@ export async function submit(
     source: input.source,
   });
 
-  // Kolejkujemy po zapisie — gdyby kolejność była odwrotna, worker mógłby
-  // sięgnąć po submit, którego jeszcze nie ma w bazie.
+  // We enqueue after saving — the other order would let the worker pick up a
+  // submission that is not in the database yet.
   await queue.enqueue({ submissionId: submission.id });
 
   return { submissionId: submission.id };

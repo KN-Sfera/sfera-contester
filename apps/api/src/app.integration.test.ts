@@ -9,8 +9,8 @@ import { startTestPostgres, type TestPostgres } from "../test/postgres.js";
 
 const publicProblem: ProblemFile = {
   slug: "z-ukrytymi",
-  title: "Zadanie z ukrytymi testami",
-  statement: "Wypisz sumę.",
+  title: "Problem with hidden tests",
+  statement: "Print the sum.",
   timeLimit: 2,
   memoryLimit: 128000,
   testCases: [
@@ -27,8 +27,8 @@ let app: FastifyInstance;
 beforeAll(async () => {
   postgres = await startTestPostgres();
   await seedProblems(postgres.handle.db, [publicProblem]);
-  // Atrapy kolejki i szyny są obowiązkowe — bez nich buildApp otwiera prawdziwe
-  // połączenie do Redisa, które przy jego braku wisi w nieskończonych retry.
+  // The queue and bus fakes are mandatory — without them buildApp opens a real
+  // Redis connection, which hangs in infinite retries when Redis is absent.
   app = await buildApp({
     logger: false,
     database: postgres.handle,
@@ -43,7 +43,7 @@ afterAll(async () => {
 });
 
 describe("GET /health", () => {
-  it("odpowiada ok", async () => {
+  it("answers ok", async () => {
     const response = await app.inject({ method: "GET", url: "/health" });
 
     expect(response.statusCode).toBe(200);
@@ -52,7 +52,7 @@ describe("GET /health", () => {
 });
 
 describe("GET /api/problems", () => {
-  it("zwraca zadanie z liczbą sampli, nie wszystkich testów", async () => {
+  it("returns a problem with the sample count, not the total test count", async () => {
     const response = await app.inject({ method: "GET", url: "/api/problems" });
 
     expect(response.statusCode).toBe(200);
@@ -63,7 +63,7 @@ describe("GET /api/problems", () => {
 });
 
 describe("GET /api/problems/:slug", () => {
-  it("nie ujawnia ukrytych testów", async () => {
+  it("never discloses hidden tests", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problems/z-ukrytymi",
@@ -71,13 +71,13 @@ describe("GET /api/problems/:slug", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().testCases).toHaveLength(2);
-    // Wejścia i wyjścia testów ukrytych nie mogą przeciec w żadnej formie.
+    // Hidden test inputs and outputs must not leak in any form.
     expect(response.payload).not.toContain("999999");
     expect(response.payload).not.toContain("1000000");
     expect(response.payload).not.toContain("-10");
   });
 
-  it("zwraca sample w kolejności oceniania", async () => {
+  it("returns samples in judging order", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problems/z-ukrytymi",
@@ -88,7 +88,7 @@ describe("GET /api/problems/:slug", () => {
     ).toEqual([1, 3]);
   });
 
-  it("zwraca 404 dla nieznanego zadania", async () => {
+  it("returns 404 for an unknown problem", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problems/nie-ma-takiego",
@@ -98,8 +98,8 @@ describe("GET /api/problems/:slug", () => {
   });
 });
 
-describe("zadania nieopublikowane", () => {
-  it("nie pojawiają się na liście ani pod slugiem", async () => {
+describe("unpublished problems", () => {
+  it("appear neither on the list nor under their slug", async () => {
     const { problems } = await import("@sfera/db");
     const { eq } = await import("drizzle-orm");
     await postgres.handle.db
@@ -124,7 +124,7 @@ describe("zadania nieopublikowane", () => {
 });
 
 describe("GET /api/languages", () => {
-  it("zwraca listę języków bez id Judge0", async () => {
+  it("returns the language list without Judge0 ids", async () => {
     const response = await app.inject({ method: "GET", url: "/api/languages" });
 
     expect(response.statusCode).toBe(200);
@@ -134,8 +134,8 @@ describe("GET /api/languages", () => {
   });
 });
 
-describe("walidacja wejścia", () => {
-  it("POST /api/run bez source zwraca 400", async () => {
+describe("input validation", () => {
+  it("returns 400 from POST /api/run with no source", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/run",
@@ -145,7 +145,7 @@ describe("walidacja wejścia", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("POST /api/run z nieznanym językiem zwraca 400", async () => {
+  it("returns 400 for POST /api/run with an unknown language", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/run",
@@ -155,7 +155,7 @@ describe("walidacja wejścia", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("POST /api/run-samples dla nieznanego zadania zwraca 404", async () => {
+  it("returns 404 from POST /api/run-samples for an unknown problem", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/run-samples",

@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-// Testy integracyjne stawiają prawdziwego Postgresa przez Testcontainers, więc
-// wymagają działającego Dockera i są trzymane poza `npm test`.
+// The integration tests stand up a real Postgres through Testcontainers, so
+// they need a running Docker and are kept out of `npm test`.
 
 const alias = {
   "@sfera/shared": fileURLToPath(
@@ -19,22 +19,22 @@ const alias = {
   ),
 };
 
-// Projekty nie dziedziczą opcji `test` z poziomu głównego, więc limity czasu
-// muszą być w każdym z osobna. Domyślne 10 s nie wystarcza na start kontenera.
+// Projects do not inherit the top-level `test` options, so the timeouts have to
+// be set on each of them. The default 10 s is not enough to boot a container.
 const timeouts = {
   testTimeout: 60_000,
   hookTimeout: 180_000,
 };
 
-// Ryuk to kontener-sprzątacz Testcontainers, ściągany z Docker Huba przy każdym
-// starcie. Na maszynach bez dostępu do Huba blokuje cały zestaw. Kontenery i tak
-// zamykamy jawnie w `afterAll`, więc nic nie tracimy poza sprzątaniem po twardym
-// ubiciu procesu testów.
+// Ryuk is the Testcontainers reaper, pulled from Docker Hub on every start. On
+// machines without Hub access it blocks the whole suite. We close containers
+// explicitly in `afterAll` anyway, so the only thing lost is cleanup after the
+// test process is hard-killed.
 const env = { TESTCONTAINERS_RYUK_DISABLED: "true" };
 
 export default defineConfig({
   test: {
-    // Każdy plik stawia własny kontener — nie odpalamy ich naraz.
+    // Every file stands up its own container — we do not run them in parallel.
     fileParallelism: false,
     projects: [
       {

@@ -48,7 +48,7 @@ export async function createUser(
   return user!;
 }
 
-/** Unieważnia wszystkie wydane tokeny użytkownika. */
+/** Voids every token issued to a user. */
 export async function bumpTokenVersion(
   db: Database,
   userId: string,

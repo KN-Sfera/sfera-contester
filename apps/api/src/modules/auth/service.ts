@@ -10,33 +10,33 @@ import {
 
 export class EmailTakenError extends Error {
   constructor() {
-    super("Konto z tym adresem już istnieje");
+    super("An account with this email already exists");
     this.name = "EmailTakenError";
   }
 }
 
 export class InvalidCredentialsError extends Error {
   constructor() {
-    super("Niepoprawny email lub hasło");
+    super("Incorrect email or password");
     this.name = "InvalidCredentialsError";
   }
 }
 
 export class RegistrationClosedError extends Error {
   constructor() {
-    super("Rejestracja jest wyłączona");
+    super("Registration is closed");
     this.name = "RegistrationClosedError";
   }
 }
 
-/** To, co ląduje w tokenie. Bez emaila — nie ma powodu go tam nosić. */
+/** What goes into the token. No email — there is no reason to carry it there. */
 export interface SessionClaims {
   sub: string;
   role: "USER" | "ADMIN";
   tv: number;
 }
 
-/** Publiczny profil — nigdy nie zawiera hasha. */
+/** The public profile — it never carries the hash. */
 export interface PublicUser {
   id: string;
   email: string;
@@ -90,8 +90,8 @@ export async function login(
   const user = await findUserByEmail(db, input.email);
 
   if (!user) {
-    // Hashujemy mimo braku konta, żeby czas odpowiedzi nie zdradzał, które
-    // adresy są zarejestrowane.
+    // We hash even with no account, so that response time does not reveal
+    // which addresses are registered.
     await hashPassword(input.password);
     throw new InvalidCredentialsError();
   }
@@ -105,8 +105,8 @@ export async function login(
 }
 
 /**
- * Sprawdza, czy token wciąż jest ważny. Sama poprawność podpisu nie wystarczy —
- * wersja w tokenie musi zgadzać się z aktualną wersją użytkownika.
+ * Checks whether a token is still valid. A correct signature is not enough —
+ * the version inside the token has to match the user's current version.
  */
 export async function resolveSession(
   db: Database,

@@ -11,7 +11,7 @@ import {
 import { problems } from "./problems.js";
 import { users } from "./users.js";
 
-/** Kolekcja zadań: ścieżka nauki, archiwum konkursu, zestaw ćwiczeń. */
+/** A collection of problems: a learning path, a contest archive, a practice set. */
 export const problemSets = pgTable("problem_sets", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: varchar("slug", { length: 64 }).notNull().unique(),
@@ -39,11 +39,11 @@ export const problemSetItems = pgTable(
     problemId: uuid("problem_id")
       .notNull()
       .references(() => problems.id, { onDelete: "cascade" }),
-    /** Kolejność w zestawie, liczona od 1. */
+    /** Position within the set, counted from 1. */
     position: integer("position").notNull(),
   },
   (table) => [
-    // Zadanie może należeć do wielu zestawów, ale w jednym tylko raz.
+    // A problem can belong to many sets, but only once within a set.
     uniqueIndex("problem_set_items_set_problem_uq").on(
       table.setId,
       table.problemId,

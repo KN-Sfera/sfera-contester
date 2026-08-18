@@ -19,7 +19,7 @@ function problemFile(slug: string): ProblemFile {
   return {
     slug,
     title: `Zadanie ${slug}`,
-    statement: "Treść.",
+    statement: "Statement.",
     timeLimit: 2,
     memoryLimit: 128000,
     testCases: [{ input: "1\n", expectedOutput: "1\n", isSample: true }],
@@ -39,7 +39,7 @@ async function loginAs(email: string): Promise<string> {
   const response = await app.inject({
     method: "POST",
     url: "/api/auth/login",
-    payload: { email, password: "bardzo-tajne-haslo" },
+    payload: { email, password: "integration-test-password" },
   });
   const session = response.cookies.find(
     (item) => item.name === "sfera_session",
@@ -47,7 +47,7 @@ async function loginAs(email: string): Promise<string> {
   return `sfera_session=${session.value}`;
 }
 
-/** Przesuwa okno konkursu tak, żeby „teraz" wypadło w zadanej minucie. */
+/** Shifts the contest window so that "now" falls on a given minute. */
 async function setContestClock(minuteNow: number, durationMinutes = 300) {
   const startsAt = new Date(Date.now() - minuteNow * 60_000);
   await postgres.handle.db
@@ -73,7 +73,7 @@ beforeAll(async () => {
     problemFile("zad-b"),
   ]);
 
-  const passwordHash = await hashPassword("bardzo-tajne-haslo");
+  const passwordHash = await hashPassword("integration-test-password");
   await createUser(postgres.handle.db, {
     email: "admin@example.com",
     passwordHash,
@@ -103,8 +103,8 @@ afterAll(async () => {
   await postgres?.stop();
 });
 
-describe("tworzenie konkursu", () => {
-  it("wymaga admina", async () => {
+describe("creating a contest", () => {
+  it("requires an admin", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/contests",
@@ -120,7 +120,7 @@ describe("tworzenie konkursu", () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it("zakłada konkurs z domyślnymi regułami ICPC", async () => {
+  it("creates a contest with the default ICPC rules", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/contests",
@@ -144,7 +144,7 @@ describe("tworzenie konkursu", () => {
     });
   });
 
-  it("przydziela zadaniom litery A, B, ...", async () => {
+  it("assigns the problems letters A, B, ...", async () => {
     const response = await app.inject({
       method: "PUT",
       url: "/api/admin/contests/icpc-2026/problems",
@@ -156,11 +156,11 @@ describe("tworzenie konkursu", () => {
       "A",
       "B",
     ]);
-    // Litera idzie z kolejności na liście, nie z nazwy zadania.
+    // The letter comes from the position in the list, not from the problem name.
     expect(response.json()[0].slug).toBe("zad-b");
   });
 
-  it("odrzuca nieistniejące zadanie", async () => {
+  it("rejects a problem that does not exist", async () => {
     const response = await app.inject({
       method: "PUT",
       url: "/api/admin/contests/icpc-2026/problems",
@@ -173,8 +173,8 @@ describe("tworzenie konkursu", () => {
   });
 });
 
-describe("widoczność zadań przed startem", () => {
-  it("zawodnik nie widzi listy zadań przed startem", async () => {
+describe("problem visibility before the start", () => {
+  it("hides the problem list from contestants before the start", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026",
@@ -182,11 +182,11 @@ describe("widoczność zadań przed startem", () => {
     });
 
     expect(response.json().phase).toBe("UPCOMING");
-    // Gdyby lista wyciekała, można by się przygotować przed sygnałem.
+    // If the list leaked, one could prepare before the signal.
     expect(response.json().problems).toEqual([]);
   });
 
-  it("admin widzi zadania zawsze", async () => {
+  it("always shows the problems to an admin", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026",
@@ -196,7 +196,7 @@ describe("widoczność zadań przed startem", () => {
     expect(response.json().problems).toHaveLength(2);
   });
 
-  it("po starcie zadania są widoczne dla wszystkich", async () => {
+  it("shows the problems to everyone once the contest starts", async () => {
     await setContestClock(10);
 
     const response = await app.inject({
@@ -210,8 +210,8 @@ describe("widoczność zadań przed startem", () => {
   });
 });
 
-describe("rejestracja", () => {
-  it("zapisuje zawodnika", async () => {
+describe("registration", () => {
+  it("registers a contestant", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/contests/icpc-2026/register",
@@ -221,7 +221,7 @@ describe("rejestracja", () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it("powtórna rejestracja nie jest błędem", async () => {
+  it("treats a repeated registration as a no-op", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/contests/icpc-2026/register",
@@ -231,7 +231,7 @@ describe("rejestracja", () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it("admin może dopisać zawodnika po adresie email", async () => {
+  it("lets an admin add a contestant by email", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/contests/icpc-2026/participants",
@@ -242,7 +242,7 @@ describe("rejestracja", () => {
     expect(response.statusCode).toBe(201);
   });
 
-  it("zamknięta rejestracja blokuje zapisy", async () => {
+  it("blocks sign-ups when registration is closed", async () => {
     await app.inject({
       method: "PATCH",
       url: "/api/admin/contests/icpc-2026",
@@ -260,14 +260,14 @@ describe("rejestracja", () => {
   });
 });
 
-describe("submity konkursowe", () => {
-  it("niezapisany dostaje 403", async () => {
+describe("contest submissions", () => {
+  it("returns 403 to an unregistered contestant", async () => {
     await createUser(postgres.handle.db, {
-      email: "obcy@example.com",
-      passwordHash: await hashPassword("bardzo-tajne-haslo"),
+      email: "stranger@example.com",
+      passwordHash: await hashPassword("integration-test-password"),
       displayName: "Obcy",
     });
-    const obcyCookie = await loginAs("obcy@example.com");
+    const obcyCookie = await loginAs("stranger@example.com");
 
     const response = await app.inject({
       method: "POST",
@@ -279,7 +279,7 @@ describe("submity konkursowe", () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it("przyjmuje submit i kolejkuje go z priorytetem konkursowym", async () => {
+  it("accepts a submission and enqueues it at contest priority", async () => {
     queue.jobs.length = 0;
 
     const response = await app.inject({
@@ -290,11 +290,11 @@ describe("submity konkursowe", () => {
     });
 
     expect(response.statusCode).toBe(202);
-    // W końcówce konkursu zawodnik nie może czekać za kolejką treningową.
+    // Towards the end of a contest nobody can wait behind the practice queue.
     expect(queue.jobs[0]!.priority).toBe("contest");
   });
 
-  it("wiąże submit z konkursem", async () => {
+  it("ties the submission to the contest", async () => {
     const [contest] = await postgres.handle.db
       .select()
       .from(contests)
@@ -307,7 +307,7 @@ describe("submity konkursowe", () => {
     expect(rows.length).toBeGreaterThan(0);
   });
 
-  it("odrzuca literę spoza konkursu", async () => {
+  it("rejects a letter that is not in the contest", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/contests/icpc-2026/submissions",
@@ -318,7 +318,7 @@ describe("submity konkursowe", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("przed startem nie da się submitować", async () => {
+  it("refuses submissions before the start", async () => {
     await setContestClock(-10);
 
     const response = await app.inject({
@@ -332,7 +332,7 @@ describe("submity konkursowe", () => {
     expect(response.json().phase).toBe("UPCOMING");
   });
 
-  it("po zakończeniu nie da się submitować", async () => {
+  it("refuses submissions after the end", async () => {
     await setContestClock(400);
 
     const response = await app.inject({
@@ -348,7 +348,7 @@ describe("submity konkursowe", () => {
 });
 
 describe("leaderboard", () => {
-  /** Wstawia oceniony submit konkursowy w danej minucie zawodów. */
+  /** Inserts a judged contest submission at a given contest minute. */
   async function scoredSubmission(
     userId: string,
     problemSlug: string,
@@ -377,8 +377,8 @@ describe("leaderboard", () => {
     });
   }
 
-  it("liczy karę zgodnie z regułami ICPC", async () => {
-    // Czyścimy submity z poprzednich testów, żeby ranking był przewidywalny.
+  it("computes the penalty by the ICPC rules", async () => {
+    // Clear submissions from earlier tests so the ranking is predictable.
     await postgres.handle.db.delete(submissions);
     const startsAt = await setContestClock(200);
 
@@ -392,7 +392,7 @@ describe("leaderboard", () => {
     });
 
     const rows = response.json().rows;
-    // ala: 30 + 20 = 50, bob: 45 → bob wyżej
+    // ala: 30 + 20 = 50, bob: 45 → bob ranks higher
     expect(rows.map((row: { displayName: string }) => row.displayName)).toEqual([
       "Bob",
       "Ala",
@@ -401,9 +401,9 @@ describe("leaderboard", () => {
     expect(rows[1].totalPenalty).toBe(50);
   });
 
-  it("zamraża tablicę w ostatniej godzinie", async () => {
+  it("freezes the scoreboard for the final hour", async () => {
     const startsAt = await setContestClock(250);
-    // Freeze zaczyna się w 240 minucie (300 - 60).
+    // The freeze begins at minute 240 (300 - 60).
     await scoredSubmission(alaId, "zad-a", "AC", 245, startsAt);
 
     const player = await app.inject({
@@ -419,7 +419,7 @@ describe("leaderboard", () => {
     expect(ala.solvedCount).toBe(1);
   });
 
-  it("admin widzi prawdziwy stan mimo zamrożenia", async () => {
+  it("shows an admin the true state despite the freeze", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026/leaderboard",
@@ -433,7 +433,7 @@ describe("leaderboard", () => {
     expect(ala.solvedCount).toBe(2);
   });
 
-  it("po rozmrożeniu wszyscy widzą komplet", async () => {
+  it("shows everyone the full board once unfrozen", async () => {
     await app.inject({
       method: "PATCH",
       url: "/api/admin/contests/icpc-2026",
@@ -454,7 +454,7 @@ describe("leaderboard", () => {
     expect(ala.solvedCount).toBe(2);
   });
 
-  it("eksport CSV zawiera nagłówek z literami zadań", async () => {
+  it("puts the problem letters in the CSV header", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/admin/contests/icpc-2026/leaderboard.csv",
@@ -467,7 +467,7 @@ describe("leaderboard", () => {
     );
   });
 
-  it("wykreślony zawodnik znika z rankingu", async () => {
+  it("removes a struck-off contestant from the ranking", async () => {
     await app.inject({
       method: "DELETE",
       url: `/api/admin/contests/icpc-2026/participants/${bobId}`,
@@ -486,19 +486,19 @@ describe("leaderboard", () => {
 });
 
 describe("clarifications", () => {
-  it("zawodnik zadaje pytanie", async () => {
+  it("a contestant asks a question", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/contests/icpc-2026/clarifications",
       headers: { cookie: alaCookie },
-      payload: { question: "Czy A może być ujemne?", problemLetter: "A" },
+      payload: { question: "Can A be negative?", problemLetter: "A" },
     });
 
     expect(response.statusCode).toBe(201);
     expect(response.json().answer).toBeNull();
   });
 
-  it("cudze pytanie bez odpowiedzi publicznej jest niewidoczne", async () => {
+  it("hides someone else's question until it is answered publicly", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026/clarifications",
@@ -508,7 +508,7 @@ describe("clarifications", () => {
     expect(response.json()).toEqual([]);
   });
 
-  it("pytający widzi swoje pytanie", async () => {
+  it("shows a question to whoever asked it", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026/clarifications",
@@ -518,7 +518,7 @@ describe("clarifications", () => {
     expect(response.json()).toHaveLength(1);
   });
 
-  it("odpowiedź publiczna trafia do wszystkich", async () => {
+  it("delivers a public answer to everyone", async () => {
     const all = await app.inject({
       method: "GET",
       url: "/api/contests/icpc-2026/clarifications",
@@ -530,7 +530,7 @@ describe("clarifications", () => {
       method: "POST",
       url: `/api/admin/contests/icpc-2026/clarifications/${id}/answer`,
       headers: { cookie: adminCookie },
-      payload: { answer: "Nie, A jest dodatnie.", isPublic: true },
+      payload: { answer: "No, A is positive.", isPublic: true },
     });
 
     const response = await app.inject({
@@ -540,15 +540,15 @@ describe("clarifications", () => {
     });
 
     expect(response.json()).toHaveLength(1);
-    expect(response.json()[0].answer).toBe("Nie, A jest dodatnie.");
+    expect(response.json()[0].answer).toBe("No, A is positive.");
   });
 
-  it("ogłoszenie admina widzą wszyscy od razu", async () => {
+  it("shows an admin announcement to everyone at once", async () => {
     await app.inject({
       method: "POST",
       url: "/api/admin/contests/icpc-2026/announcements",
       headers: { cookie: adminCookie },
-      payload: { message: "Zostało 30 minut." },
+      payload: { message: "30 minutes left." },
     });
 
     const response = await app.inject({
@@ -560,12 +560,12 @@ describe("clarifications", () => {
     const announcement = response
       .json()
       .find((item: { askedBy: string | null }) => item.askedBy === null);
-    expect(announcement.question).toBe("Zostało 30 minut.");
+    expect(announcement.question).toBe("30 minutes left.");
   });
 });
 
-describe("konkursy prywatne", () => {
-  it("nie są widoczne dla zawodników", async () => {
+describe("private contests", () => {
+  it("keeps them hidden from contestants", async () => {
     await app.inject({
       method: "POST",
       url: "/api/admin/contests",
@@ -588,7 +588,7 @@ describe("konkursy prywatne", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("nie pojawiają się na liście publicznej", async () => {
+  it("keeps them off the public list", async () => {
     const response = await app.inject({ method: "GET", url: "/api/contests" });
 
     expect(

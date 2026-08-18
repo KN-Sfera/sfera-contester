@@ -8,9 +8,9 @@ import { hashPassword } from "./password.js";
 import { createUser } from "./repository.js";
 
 const CREDENTIALS = {
-  email: "zawodnik@example.com",
-  password: "bardzo-tajne-haslo",
-  displayName: "Zawodnik",
+  email: "contestant@example.com",
+  password: "integration-test-password",
+  displayName: "Contestant",
 };
 
 let postgres: TestPostgres;
@@ -38,7 +38,7 @@ function sessionCookie(response: { cookies: unknown[] }): string {
 }
 
 describe("POST /api/auth/register", () => {
-  it("zakłada konto, ustawia sesję i nie zwraca hasha", async () => {
+  it("creates an account, sets a session and never returns the hash", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/register",
@@ -48,8 +48,8 @@ describe("POST /api/auth/register", () => {
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
       id: expect.any(String),
-      email: "zawodnik@example.com",
-      displayName: "Zawodnik",
+      email: "contestant@example.com",
+      displayName: "Contestant",
       role: "USER",
     });
     expect(response.payload).not.toContain("passwordHash");
@@ -62,31 +62,31 @@ describe("POST /api/auth/register", () => {
     expect(cookie?.sameSite?.toLowerCase()).toBe("lax");
   });
 
-  it("odrzuca drugi rejestracja na ten sam adres", async () => {
+  it("rejects a second registration for the same email", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { ...CREDENTIALS, displayName: "Ktoś inny" },
+      payload: { ...CREDENTIALS, displayName: "Somebody else" },
     });
 
     expect(response.statusCode).toBe(409);
   });
 
-  it("traktuje adres bez względu na wielkość liter", async () => {
+  it("treats the email address case-insensitively", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { ...CREDENTIALS, email: "ZAWODNIK@Example.COM" },
+      payload: { ...CREDENTIALS, email: "CONTESTANT@Example.COM" },
     });
 
     expect(response.statusCode).toBe(409);
   });
 
-  it("odrzuca za krótkie hasło", async () => {
+  it("rejects a password that is too short", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "krotkie@example.com", password: "abc", displayName: "X" },
+      payload: { email: "short@example.com", password: "abc", displayName: "X" },
     });
 
     expect(response.statusCode).toBe(400);
@@ -94,7 +94,7 @@ describe("POST /api/auth/register", () => {
 });
 
 describe("POST /api/auth/login", () => {
-  it("loguje poprawnymi danymi", async () => {
+  it("signs in with correct credentials", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -105,51 +105,51 @@ describe("POST /api/auth/login", () => {
     expect(response.json().email).toBe(CREDENTIALS.email);
   });
 
-  it("odrzuca złe hasło", async () => {
+  it("rejects a wrong password", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: CREDENTIALS.email, password: "zle-haslo-123" },
+      payload: { email: CREDENTIALS.email, password: "wrong-password-123" },
     });
 
     expect(response.statusCode).toBe(401);
   });
 
-  it("nie zdradza, czy konto istnieje", async () => {
-    const nieistniejace = await app.inject({
+  it("does not reveal whether an account exists", async () => {
+    const missingAccount = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: "nikt@example.com", password: "zle-haslo-123" },
+      payload: { email: "nobody@example.com", password: "wrong-password-123" },
     });
-    const zleHaslo = await app.inject({
+    const wrongPassword = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: CREDENTIALS.email, password: "zle-haslo-123" },
+      payload: { email: CREDENTIALS.email, password: "wrong-password-123" },
     });
 
-    expect(nieistniejace.statusCode).toBe(zleHaslo.statusCode);
-    expect(nieistniejace.json()).toEqual(zleHaslo.json());
+    expect(missingAccount.statusCode).toBe(wrongPassword.statusCode);
+    expect(missingAccount.json()).toEqual(wrongPassword.json());
   });
 });
 
 describe("GET /api/auth/me", () => {
-  it("bez ciasteczka zwraca 401", async () => {
+  it("returns 401 with no cookie", async () => {
     const response = await app.inject({ method: "GET", url: "/api/auth/me" });
 
     expect(response.statusCode).toBe(401);
   });
 
-  it("z podrobionym tokenem zwraca 401", async () => {
+  it("returns 401 for a forged token", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/auth/me",
-      headers: { cookie: "sfera_session=to.nie.jest.token" },
+      headers: { cookie: "sfera_session=not.a.real.token" },
     });
 
     expect(response.statusCode).toBe(401);
   });
 
-  it("z ważną sesją zwraca profil", async () => {
+  it("returns the profile for a valid session", async () => {
     const loginResponse = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -167,8 +167,8 @@ describe("GET /api/auth/me", () => {
   });
 });
 
-describe("wylogowanie", () => {
-  it("logout czyści ciasteczko", async () => {
+describe("signing out", () => {
+  it("clears the cookie on logout", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/logout",
@@ -180,7 +180,7 @@ describe("wylogowanie", () => {
     expect(cookie?.value).toBe("");
   });
 
-  it("logout-all unieważnia tokeny wydane wcześniej", async () => {
+  it("voids previously issued tokens on logout-all", async () => {
     const loginResponse = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -188,7 +188,7 @@ describe("wylogowanie", () => {
     });
     const cookie = sessionCookie(loginResponse);
 
-    // Token działa przed unieważnieniem.
+    // The token works before it is voided.
     const before = await app.inject({
       method: "GET",
       url: "/api/auth/me",
@@ -202,7 +202,7 @@ describe("wylogowanie", () => {
       headers: { cookie },
     });
 
-    // Ten sam, poprawnie podpisany token po podbiciu token_version już nie działa.
+    // The same correctly signed token stops working once token_version is bumped.
     const after = await app.inject({
       method: "GET",
       url: "/api/auth/me",
@@ -213,20 +213,20 @@ describe("wylogowanie", () => {
 });
 
 describe("requireRole", () => {
-  it("token usuniętego użytkownika przestaje działać", async () => {
-    const password = await hashPassword("haslo-do-skasowania");
+  it("stops accepting the token of a deleted user", async () => {
+    const password = await hashPassword("password-to-be-deleted");
     const user = await createUser(postgres.handle.db, {
-      email: "znikajacy@example.com",
+      email: "vanishing@example.com",
       passwordHash: password,
-      displayName: "Znikający",
+      displayName: "Vanishing",
     });
 
     const loginResponse = await app.inject({
       method: "POST",
       url: "/api/auth/login",
       payload: {
-        email: "znikajacy@example.com",
-        password: "haslo-do-skasowania",
+        email: "vanishing@example.com",
+        password: "password-to-be-deleted",
       },
     });
     const cookie = sessionCookie(loginResponse);

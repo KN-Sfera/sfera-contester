@@ -10,7 +10,7 @@ export interface TestPostgres {
   stop: () => Promise<void>;
 }
 
-/** Świeży Postgres z zastosowanymi migracjami. Wołane z `beforeAll`. */
+/** A fresh Postgres with the migrations applied. Called from `beforeAll`. */
 export async function startTestPostgres(): Promise<TestPostgres> {
   const container: StartedPostgreSqlContainer =
     await new PostgreSqlContainer("postgres:16.2").start();

@@ -41,18 +41,18 @@ beforeAll(async () => {
 
   await createUser(postgres.handle.db, {
     email: "admin@example.com",
-    passwordHash: await hashPassword("bardzo-tajne-haslo"),
+    passwordHash: await hashPassword("integration-test-password"),
     displayName: "Admin",
     role: "ADMIN",
   });
   await createUser(postgres.handle.db, {
-    email: "zwykly@example.com",
-    passwordHash: await hashPassword("bardzo-tajne-haslo"),
-    displayName: "Zwykły",
+    email: "regular@example.com",
+    passwordHash: await hashPassword("integration-test-password"),
+    displayName: "Regular",
   });
 
-  adminCookie = await loginAs("admin@example.com", "bardzo-tajne-haslo");
-  userCookie = await loginAs("zwykly@example.com", "bardzo-tajne-haslo");
+  adminCookie = await loginAs("admin@example.com", "integration-test-password");
+  userCookie = await loginAs("regular@example.com", "integration-test-password");
 });
 
 beforeEach(() => {
@@ -72,7 +72,7 @@ async function createProblem(slug: string) {
     payload: {
       slug,
       title: "A + B",
-      statement: "Wypisz sumę.",
+      statement: "Print the sum.",
       timeLimit: 2,
       memoryLimit: 128000,
     },
@@ -94,8 +94,8 @@ async function setTestCases(slug: string, count = 3) {
   });
 }
 
-describe("kontrola dostępu", () => {
-  it("bez zalogowania zwraca 401", async () => {
+describe("access control", () => {
+  it("returns 401 without a session", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/admin/problems",
@@ -104,7 +104,7 @@ describe("kontrola dostępu", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it("zwykły użytkownik dostaje 403", async () => {
+  it("gives a regular user a 403", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/admin/problems",
@@ -114,7 +114,7 @@ describe("kontrola dostępu", () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it("zwykły użytkownik nie może tworzyć zadań", async () => {
+  it("does not let a regular user create problems", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/problems",
@@ -126,40 +126,40 @@ describe("kontrola dostępu", () => {
   });
 });
 
-describe("tworzenie zadania", () => {
-  it("nowe zadanie jest szkicem, nie publikuje się samo", async () => {
-    const response = await createProblem("nowe-zadanie");
+describe("creating a problem", () => {
+  it("creates a new problem as a draft, never self-published", async () => {
+    const response = await createProblem("new-problem");
 
     expect(response.statusCode).toBe(201);
     expect(response.json().isPublic).toBe(false);
   });
 
-  it("szkic nie jest widoczny na publicznej liście", async () => {
+  it("keeps a draft off the public list", async () => {
     const response = await app.inject({ method: "GET", url: "/api/problems" });
 
     expect(response.json()).toEqual([]);
   });
 
-  it("odrzuca zajęty slug", async () => {
-    const response = await createProblem("nowe-zadanie");
+  it("rejects a slug that is taken", async () => {
+    const response = await createProblem("new-problem");
 
     expect(response.statusCode).toBe(409);
   });
 
-  it("odrzuca slug z wielkimi literami i spacjami", async () => {
+  it("rejects a slug with capitals and spaces", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/problems",
       headers: { cookie: adminCookie },
-      payload: { slug: "Złe Slug", title: "X", statement: "Y" },
+      payload: { slug: "Bad Slug", title: "X", statement: "Y" },
     });
 
     expect(response.statusCode).toBe(400);
   });
 });
 
-describe("testy zadania", () => {
-  it("numeruje testy od 1 w kolejności podania", async () => {
+describe("problem tests", () => {
+  it("numbers tests from 1 in the order given", async () => {
     await setTestCases("nowe-zadanie", 3);
 
     const response = await app.inject({
@@ -173,7 +173,7 @@ describe("testy zadania", () => {
     ).toEqual([1, 2, 3]);
   });
 
-  it("admin widzi pełną treść testów, także ukrytych", async () => {
+  it("lets an admin see full test contents, hidden ones included", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/admin/problems/nowe-zadanie",
@@ -187,7 +187,7 @@ describe("testy zadania", () => {
     expect(hidden.expectedOutput).toBeTruthy();
   });
 
-  it("zachowuje id testów przy powtórnym zapisie", async () => {
+  it("keeps test ids across a rewrite", async () => {
     const before = await app.inject({
       method: "GET",
       url: "/api/admin/problems/nowe-zadanie",
@@ -202,13 +202,13 @@ describe("testy zadania", () => {
       headers: { cookie: adminCookie },
     });
 
-    // Inaczej historia submitów traciłaby powiązanie z testami przy każdej edycji.
+    // Otherwise submission history would lose its link to the tests on every edit.
     expect(after.json().testCases.map((tc: { id: string }) => tc.id)).toEqual(
       before.json().testCases.map((tc: { id: string }) => tc.id),
     );
   });
 
-  it("usuwa testy, których zabrakło w nowym komplecie", async () => {
+  it("deletes tests missing from the new set", async () => {
     await setTestCases("nowe-zadanie", 2);
 
     const response = await app.inject({
@@ -221,8 +221,8 @@ describe("testy zadania", () => {
   });
 });
 
-describe("publikacja z walidacją wzorcówki", () => {
-  it("przepuszcza wzorcówkę przez wszystkie testy i publikuje", async () => {
+describe("publishing with reference validation", () => {
+  it("runs the reference solution through every test and publishes", async () => {
     await setTestCases("nowe-zadanie", 3);
 
     const response = await app.inject({
@@ -237,7 +237,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     expect(judge0.calls).toHaveLength(3);
   });
 
-  it("po publikacji zadanie jest widoczne publicznie", async () => {
+  it("makes a problem publicly visible once published", async () => {
     const response = await app.inject({ method: "GET", url: "/api/problems" });
 
     expect(response.json()).toEqual([
@@ -245,7 +245,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     ]);
   });
 
-  it("nie publikuje, gdy wzorcówka nie przechodzi", async () => {
+  it("refuses to publish when the reference solution fails", async () => {
     await app.inject({
       method: "POST",
       url: "/api/admin/problems/nowe-zadanie/unpublish",
@@ -267,7 +267,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     expect(list.json()).toEqual([]);
   });
 
-  it("nie przerywa na pierwszym błędzie — admin widzi komplet problemów", async () => {
+  it("does not stop at the first failure — an admin sees every problem", async () => {
     judge0.script(["WA", "AC", "TLE"]);
 
     const response = await app.inject({
@@ -287,7 +287,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     ]);
   });
 
-  it("pokazuje oczekiwane i faktyczne wyjście tylko dla testów, które padły", async () => {
+  it("shows expected and actual output only for the tests that failed", async () => {
     judge0.script(["AC", "WA"]);
 
     const response = await app.inject({
@@ -303,7 +303,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     expect(failed.actualOutput).toBe("zle-wyjscie");
   });
 
-  it("zadanie bez testów nie da się opublikować", async () => {
+  it("refuses to publish a problem with no tests", async () => {
     await createProblem("bez-testow");
 
     const response = await app.inject({
@@ -316,7 +316,7 @@ describe("publikacja z walidacją wzorcówki", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("nieistniejące zadanie zwraca 404", async () => {
+  it("returns 404 for a missing problem", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/problems/nie-ma/publish",
@@ -328,8 +328,8 @@ describe("publikacja z walidacją wzorcówki", () => {
   });
 });
 
-describe("usuwanie", () => {
-  it("usuwa zadanie razem z testami", async () => {
+describe("deleting", () => {
+  it("deletes a problem together with its tests", async () => {
     const response = await app.inject({
       method: "DELETE",
       url: "/api/admin/problems/bez-testow",

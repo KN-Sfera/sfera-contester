@@ -12,7 +12,7 @@ import { parseTime, summarizeRun } from "./summarize.js";
 
 export class SubmissionNotFoundError extends Error {
   constructor(submissionId: string) {
-    super(`Nie ma submitu ${submissionId}`);
+    super(`No such submission: ${submissionId}`);
     this.name = "SubmissionNotFoundError";
   }
 }
@@ -24,13 +24,13 @@ export interface JudgeDeps {
 }
 
 /**
- * Ocenia jeden submit.
+ * Judges a single submission.
  *
- * Przerywa na pierwszym niezaliczonym teście — reguła ICPC (zaliczone albo nie,
- * bez punktów cząstkowych) plus oszczędność czasu Judge0, którego w ostatnich
+ * Stops at the first failing test — the ICPC rule (solved or not, no partial
+ * credit) plus the saving in Judge0 time, which in the closing
  * minutach konkursu brakuje najbardziej.
  *
- * Błędy Judge0 są przepuszczane w górę, żeby BullMQ mógł ponowić zadanie.
+ * Judge0 errors are passed upwards so that BullMQ can retry the job.
  */
 export async function judgeSubmission(
   deps: JudgeDeps,
@@ -60,7 +60,7 @@ export async function judgeSubmission(
       memoryLimit: task.memoryLimit,
     });
 
-    // "OK" wraca tylko bez oczekiwanego wyjścia, a tutaj zawsze je podajemy.
+    // "OK" only comes back when no expected output was given, and here we always give one.
     const verdict = (result.verdict === "OK" ? "WA" : result.verdict) as Exclude<
       Verdict,
       "OK"

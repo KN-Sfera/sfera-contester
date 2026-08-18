@@ -3,19 +3,19 @@ import type { Verdict } from "../index.js";
 /**
  * Scoring ICPC.
  *
- * Czysta funkcja bez I/O — bierze listę submitów i parametry konkursu, oddaje
- * ranking. To najbardziej podatny na błędy fragment całego systemu, więc musi
- * dać się przetestować bez bazy i bez sandboxa.
+ * A pure function with no I/O — it takes a list of submissions and the contest
+ * parameters and returns a ranking. This is the most error-prone piece of the
+ * whole system, so it has to be testable without a database and without a sandbox.
  */
 
 export interface ContestRules {
-  /** Moment startu konkursu. Od niego liczymy czas rozwiązania. */
+  /** When the contest starts. Solve times are measured from here. */
   startsAt: Date;
-  /** Kara doliczana za każdy błędny submit przed zaliczeniem. ICPC: 20. */
+  /** Penalty added for each failed submission before the accepted one. ICPC: 20. */
   penaltyMinutes: number;
   /**
-   * Czy nieudana kompilacja liczy się jako błędny submit.
-   * Na ICPC World Finals — nie.
+   * Whether a failed compilation counts as a failed attempt.
+   * At the ICPC World Finals it does not.
    */
   compileErrorCountsAsAttempt: boolean;
 }
@@ -30,13 +30,13 @@ export interface ScoredSubmission {
 export interface ProblemResult {
   problemId: string;
   solved: boolean;
-  /** Liczba błędnych prób **przed** zaliczeniem. Po AC już nie rośnie. */
+  /** Failed attempts **before** the accepted one. It stops growing after AC. */
   attempts: number;
-  /** Minuty od startu do AC. `null` gdy nierozwiązane. */
+  /** Minutes from the start to the accepted submission. `null` if unsolved. */
   solvedAtMinute: number | null;
-  /** `solvedAtMinute` + kara. `null` gdy nierozwiązane. */
+  /** `solvedAtMinute` plus penalty. `null` if unsolved. */
   penaltyMinutes: number | null;
-  /** Zawodnik próbował, ale jeszcze nie zaliczył — „pending" na tablicy ICPC. */
+  /** Attempted but not yet solved — "pending" on an ICPC scoreboard. */
   pending: boolean;
 }
 
@@ -44,24 +44,24 @@ export interface LeaderboardRow {
   rank: number;
   participantId: string;
   solvedCount: number;
-  /** Suma kar za zaliczone zadania. Nierozwiązane nie wliczają się wcale. */
+  /** Total penalty across solved problems. Unsolved ones do not count at all. */
   totalPenalty: number;
   problems: ProblemResult[];
 }
 
 export interface ScoreInput {
   rules: ContestRules;
-  /** Wszyscy zarejestrowani — także ci bez ani jednego submitu. */
+  /** Everyone registered — including those who never submitted. */
   participantIds: string[];
   problemIds: string[];
   submissions: ScoredSubmission[];
 }
 
-/** Werdykty, które w ogóle nie są próbą — błąd po naszej stronie, nie zawodnika. */
+/** Verdicts that are not an attempt at all — our failure, not the contestant's. */
 const NOT_AN_ATTEMPT: ReadonlySet<Verdict> = new Set<Verdict>(["SE"]);
 
 export function minutesSinceStart(startsAt: Date, at: Date): number {
-  // Podłoga, bo ICPC liczy pełne minuty: submit w 5:59 to piąta minuta.
+  // Floored, because ICPC counts whole minutes: a submission at 5:59 is minute five.
   return Math.floor((at.getTime() - startsAt.getTime()) / 60_000);
 }
 
@@ -102,7 +102,7 @@ function scoreProblem(
     }
   }
 
-  // Zadanie nierozwiązane: kary nie liczymy wcale, nawet po wielu próbach.
+  // An unsolved problem carries no penalty at all, however many attempts were made.
   return {
     problemId,
     solved: false,
@@ -116,10 +116,9 @@ function scoreProblem(
 /**
  * Buduje ranking.
  *
- * Kolejność: więcej rozwiązanych wyżej; przy remisie niższa suma kar; przy
- * dalszym remisie wcześniejszy czas ostatniego zaliczenia. Remis nierozstrzygnięty
- * po tych trzech kryteriach oznacza tę samą pozycję — na ICPC dwie drużyny
- * naprawdę mogą dzielić miejsce.
+ * Ordering: more problems solved ranks higher; on a tie, the lower total
+ * penalty; still tied, the earlier last-solve time. A tie unresolved by all
+ * three means a shared position — at ICPC two teams really can share a place.
  */
 export function buildLeaderboard(input: ScoreInput): LeaderboardRow[] {
   const byParticipant = new Map<string, Map<string, ScoredSubmission[]>>();
@@ -128,8 +127,8 @@ export function buildLeaderboard(input: ScoreInput): LeaderboardRow[] {
   }
 
   for (const submission of input.submissions) {
-    // Submity spoza listy zarejestrowanych ignorujemy — inaczej wykreślenie
-    // zawodnika nie usuwałoby go z tablicy.
+    // Submissions from outside the registered list are ignored — otherwise
+    // removing a contestant would not remove them from the scoreboard.
     const problems = byParticipant.get(submission.participantId);
     if (!problems) continue;
 
@@ -190,11 +189,12 @@ export function buildLeaderboard(input: ScoreInput): LeaderboardRow[] {
 }
 
 /**
- * Odcina submity z okresu zamrożenia.
+ * Cuts off submissions made during the freeze.
  *
- * Publiczna tablica przez ostatnie `freezeMinutes` nie pokazuje zmian: wyniki
- * zamrażają się w stanie sprzed freeze'u, a późniejsze próby są widoczne tylko
- * jako „pending". Admin dostaje komplet, bo musi wiedzieć, co się dzieje.
+ * For the last `freezeMinutes` the public scoreboard shows no changes: the
+ * results freeze in their pre-freeze state, and later attempts show only as
+ * "pending". An admin sees everything, because an admin has to know what is
+ * going on.
  */
 export function applyFreeze(
   submissions: ScoredSubmission[],
@@ -217,8 +217,8 @@ export function applyFreeze(
 }
 
 /**
- * Moment, od którego tablica jest zamrożona. `null` gdy freeze jeszcze nie
- * zaczął obowiązywać albo konkurs się skończył i wyniki są już odmrożone.
+ * The moment the scoreboard freezes. `null` when the freeze has not begun yet,
+ * or the contest is over and the results have been unfrozen.
  */
 export function freezeStart(options: {
   startsAt: Date;

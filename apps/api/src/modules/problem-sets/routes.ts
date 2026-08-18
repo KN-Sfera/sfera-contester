@@ -17,7 +17,7 @@ const slugSchema = z
   .string()
   .min(1)
   .max(64)
-  .regex(/^[a-z0-9-]+$/, "slug: tylko małe litery, cyfry i myślniki");
+  .regex(/^[a-z0-9-]+$/, "slug: lowercase letters, digits and hyphens only");
 
 const createSchema = z.object({
   slug: slugSchema,
@@ -39,7 +39,7 @@ export async function problemSetRoutes(app: FastifyInstance): Promise<void> {
   // --- Publiczne ---
 
   app.get("/api/problem-sets", async (request) => {
-    // Postęp liczymy tylko dla zalogowanych, ale sama lista jest otwarta.
+    // Progress is computed only for signed-in users, but the list itself is open.
     const userId = await optionalUserId(request);
     return listPublicProblemSets(app.db, userId);
   });
@@ -80,7 +80,7 @@ export async function problemSetRoutes(app: FastifyInstance): Promise<void> {
 
       const existing = await findProblemSetBySlug(app.db, parsed.data.slug);
       if (existing) {
-        return reply.code(409).send({ error: "Slug jest już zajęty" });
+        return reply.code(409).send({ error: "That slug is taken" });
       }
 
       const set = await insertProblemSet(app.db, {
@@ -145,7 +145,7 @@ export async function problemSetRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-/** Zwraca id zalogowanego albo null — nie odrzuca anonimowych. */
+/** Returns the signed-in user's id, or null — it never rejects anonymous callers. */
 async function optionalUserId(request: {
   jwtVerify: () => Promise<{ sub: string }>;
 }): Promise<string | null> {

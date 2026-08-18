@@ -2,54 +2,54 @@ import { describe, expect, it } from "vitest";
 import { compareOutputs, normalizeOutput } from "./index.js";
 
 describe("normalizeOutput", () => {
-  it("zamienia CRLF i samotny CR na LF", () => {
+  it("turns CRLF and a lone CR into LF", () => {
     expect(normalizeOutput("a\r\nb\rc")).toBe("a\nb\nc");
   });
 
-  it("ucina białe znaki na końcu każdej linii", () => {
+  it("trims trailing whitespace on every line", () => {
     expect(normalizeOutput("a   \nb\t\nc")).toBe("a\nb\nc");
   });
 
-  it("nie rusza wcięć na początku linii", () => {
+  it("leaves leading indentation alone", () => {
     expect(normalizeOutput("  a\n    b")).toBe("  a\n    b");
   });
 
-  it("ucina puste linie na końcu", () => {
+  it("trims blank lines at the end", () => {
     expect(normalizeOutput("3\n\n\n")).toBe("3");
   });
 
-  it("zachowuje puste linie w środku", () => {
+  it("keeps blank lines in the middle", () => {
     expect(normalizeOutput("a\n\nb")).toBe("a\n\nb");
   });
 
-  it("pusty string zostaje pusty", () => {
+  it("leaves an empty string empty", () => {
     expect(normalizeOutput("")).toBe("");
   });
 });
 
 describe("compareOutputs", () => {
-  it("akceptuje różnicę tylko w znaku końca linii", () => {
+  it("accepts a difference in line endings alone", () => {
     expect(compareOutputs("3\n", "3")).toBe(true);
     expect(compareOutputs("3\r\n", "3\n")).toBe(true);
   });
 
-  it("akceptuje nadmiarowe spacje na końcu linii", () => {
+  it("accepts extra spaces at the end of a line", () => {
     expect(compareOutputs("3 \n", "3\n")).toBe(true);
   });
 
-  it("odrzuca różnicę w treści", () => {
+  it("rejects a difference in content", () => {
     expect(compareOutputs("4\n", "3\n")).toBe(false);
   });
 
-  it("odrzuca różnicę we wcięciu", () => {
+  it("rejects a difference in indentation", () => {
     expect(compareOutputs(" 3\n", "3\n")).toBe(false);
   });
 
-  it("odrzuca brakującą linię", () => {
+  it("rejects a missing line", () => {
     expect(compareOutputs("1\n2\n", "1\n2\n3\n")).toBe(false);
   });
 
-  it("traktuje pusty output i same białe znaki jako równe", () => {
+  it("treats empty output and pure whitespace as equal", () => {
     expect(compareOutputs("\n\n", "")).toBe(true);
   });
 });

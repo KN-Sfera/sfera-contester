@@ -1,20 +1,20 @@
 import type { FastifyReply } from "fastify";
 
-/** Co ile wysyłamy komentarz podtrzymujący połączenie. */
+/** How often we send a comment to keep the connection alive. */
 const HEARTBEAT_MS = 20_000;
 
 export interface SseStream {
-  /** Wysyła zdarzenie nazwane, np. `event: done`. */
+  /** Sends a named event, e.g. `event: done`. */
   sendNamed: (name: string, data: unknown) => void;
   close: () => void;
 }
 
 /**
- * Opakowuje surową odpowiedź w strumień SSE.
+ * Wraps a raw reply in an SSE stream.
  *
- * Heartbeat jest konieczny: proxy i load balancery zrywają połączenia bez ruchu,
- * a ocenianie długiego zadania albo spokojny fragment konkursu potrafią milczeć
- * dłużej niż ich timeout.
+ * The heartbeat is necessary: proxies and load balancers drop idle connections,
+ * and judging a long problem — or a quiet stretch of a contest — can stay silent
+ * for longer than their timeout.
  */
 export function openSseStream(
   reply: FastifyReply,
@@ -24,8 +24,8 @@ export function openSseStream(
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    // Wyłącza buforowanie w nginxie — bez tego zdarzenia docierają paczkami
-    // dopiero na końcu.
+    // Disables buffering in nginx — without it events arrive in a batch at the
+    // very end.
     "X-Accel-Buffering": "no",
   });
 
@@ -44,8 +44,8 @@ export function openSseStream(
     reply.raw.end();
   }
 
-  // Zamknięcie karty przez użytkownika musi zwolnić subskrypcję,
-  // inaczej połączenia wyciekają przy każdym odświeżeniu strony.
+  // Closing the tab has to release the subscription, otherwise connections
+  // leak on every page refresh.
   reply.raw.on("close", close);
 
   return {

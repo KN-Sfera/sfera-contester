@@ -9,12 +9,13 @@ export interface SeedReport {
 }
 
 /**
- * Wrzuca zadanie do bazy. Idempotentne — powtórne wywołanie z tym samym plikiem
- * nic nie zmienia.
+ * Writes a problem into the database. Idempotent — running it again with the
+ * same file
+ * changes nothing.
  *
- * Testy są aktualizowane po numerze (`ordinal`), a nie kasowane i wstawiane od
- * nowa. Dzięki temu `submission_results.test_case_id` nie traci powiązania przy
- * każdym seedzie, a historia submitów zostaje spójna.
+ * Tests are updated by their number (`ordinal`) rather than deleted and
+ * reinserted. That keeps `submission_results.test_case_id` linked across seeds
+ * and leaves the submission history coherent.
  */
 export async function seedProblem(
   db: Database,
@@ -73,7 +74,7 @@ export async function seedProblem(
         },
       });
 
-    // Testy, które zniknęły z pliku.
+    // Tests that disappeared from the file.
     await tx
       .delete(testCases)
       .where(

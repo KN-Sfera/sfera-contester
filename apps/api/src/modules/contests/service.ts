@@ -21,14 +21,14 @@ import {
 
 export class ContestNotFoundError extends Error {
   constructor(slug: string) {
-    super(`Nie ma konkursu ${slug}`);
+    super(`No such contest: ${slug}`);
     this.name = "ContestNotFoundError";
   }
 }
 
 export class NotRegisteredError extends Error {
   constructor() {
-    super("Nie jesteś zapisany na ten konkurs");
+    super("You are not registered for this contest");
     this.name = "NotRegisteredError";
   }
 }
@@ -37,8 +37,8 @@ export class ContestNotRunningError extends Error {
   constructor(readonly phase: "UPCOMING" | "FINISHED") {
     super(
       phase === "UPCOMING"
-        ? "Konkurs jeszcze się nie zaczął"
-        : "Konkurs już się zakończył",
+        ? "The contest has not started yet"
+        : "The contest is already over",
     );
     this.name = "ContestNotRunningError";
   }
@@ -46,16 +46,16 @@ export class ContestNotRunningError extends Error {
 
 export class ProblemNotInContestError extends Error {
   constructor(letter: string) {
-    super(`Zadanie ${letter} nie należy do tego konkursu`);
+    super(`Problem ${letter} does not belong to this contest`);
     this.name = "ProblemNotInContestError";
   }
 }
 
 /**
- * Zadania konkursu widać dopiero po starcie.
+ * Contest problems become visible only after the start.
  *
- * To nie kosmetyka: gdyby lista wyciekała wcześniej, zawodnicy mieliby czas na
- * przygotowanie przed sygnałem. Admin widzi je zawsze.
+ * This is not cosmetic: if the list leaked earlier, contestants would have time
+ * to prepare before the signal. Admins always see them.
  */
 export async function getContestProblems(
   db: Database,
@@ -76,7 +76,7 @@ export interface ContestOverview {
   penaltyMinutes: number;
   freezeMinutes: number;
   phase: "UPCOMING" | "RUNNING" | "FINISHED";
-  /** Zegar liczony po stronie serwera — przeglądarka tylko wyświetla. */
+  /** The clock is kept server-side — the browser only displays it. */
   secondsUntilStart: number;
   secondsRemaining: number;
   serverTime: Date;
@@ -122,8 +122,9 @@ export interface ContestSubmitInput {
 }
 
 /**
- * Submit konkursowy. Poza zwykłą walidacją pilnuje trzech rzeczy: że zawodnik
- * jest zapisany, że konkurs właśnie trwa i że zadanie do niego należy.
+ * A contest submission. Beyond the usual validation it enforces three things:
+ * the contestant is registered, the contest is running, and the problem belongs
+ * to it.
  */
 export async function submitToContest(
   db: Database,
@@ -157,8 +158,8 @@ export async function submitToContest(
     source: input.source,
   });
 
-  // Wyższy priorytet niż ćwiczenia — w końcówce konkursu kolejka rośnie,
-  // a zawodnik na zawodach nie może czekać za treningiem.
+  // Higher priority than practice — the queue grows towards the end of a
+  // contest, and a competitor must not wait behind training runs.
   await queue.enqueue({ submissionId: submission.id }, "contest");
 
   return { submissionId: submission.id };
@@ -174,8 +175,9 @@ export interface LeaderboardView {
 /**
  * Ranking konkursu.
  *
- * Dla zawodników przez ostatnie `freezeMinutes` pokazuje stan sprzed zamrożenia;
- * admin dostaje prawdziwy. Po ręcznym odmrożeniu wszyscy widzą to samo.
+ * For contestants it shows the pre-freeze state during the last
+ * `freezeMinutes`; an admin gets the real one. After a manual unfreeze
+ * everyone sees the same thing.
  */
 export async function getLeaderboard(
   db: Database,
@@ -201,7 +203,7 @@ export async function getLeaderboard(
       penaltyMinutes: contest.penaltyMinutes,
       compileErrorCountsAsAttempt: contest.compileErrorCountsAsAttempt,
     },
-    // Nieoficjalni startują poza rankingiem.
+    // Unofficial entrants compete outside the ranking.
     participantIds: participants
       .filter((participant) => participant.isOfficial)
       .map((participant) => participant.userId),
@@ -227,7 +229,7 @@ export async function getLeaderboard(
   };
 }
 
-/** Ranking jako CSV — format do ogłaszania wyników poza aplikacją. */
+/** The ranking as CSV — the format for announcing results outside the app. */
 export function leaderboardToCsv(view: LeaderboardView): string {
   const header = [
     "rank",

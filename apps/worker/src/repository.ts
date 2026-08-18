@@ -93,15 +93,15 @@ export interface FinishInput {
 }
 
 /**
- * Wyniki i werdykt lądują w jednej transakcji — nigdy nie chcemy stanu, w którym
- * submit jest DONE, ale wyniki per test tylko częściowo zapisane.
+ * Results and verdict land in one transaction — we never want a state where a
+ * submission is DONE but its per-test results are only partly written.
  */
 export async function finishSubmission(
   db: Database,
   input: FinishInput,
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    // Ponowne ocenianie tego samego submitu nadpisuje poprzedni przebieg.
+    // Re-judging the same submission overwrites the previous run.
     await tx
       .delete(submissionResults)
       .where(eq(submissionResults.submissionId, input.submissionId));

@@ -16,7 +16,7 @@ function problemFile(slug: string): ProblemFile {
   return {
     slug,
     title: `Zadanie ${slug}`,
-    statement: "Treść.",
+    statement: "Statement.",
     timeLimit: 2,
     memoryLimit: 128000,
     testCases: [{ input: "1\n", expectedOutput: "1\n", isSample: true }],
@@ -33,7 +33,7 @@ async function loginAs(email: string): Promise<string> {
   const response = await app.inject({
     method: "POST",
     url: "/api/auth/login",
-    payload: { email, password: "bardzo-tajne-haslo" },
+    payload: { email, password: "integration-test-password" },
   });
   const session = response.cookies.find(
     (item) => item.name === "sfera_session",
@@ -56,13 +56,13 @@ beforeAll(async () => {
     problemFile("zad-b"),
     problemFile("zad-c"),
   ]);
-  // Trzecie zadanie zostaje szkicem — nie powinno liczyć się do postępu.
+  // The third problem stays a draft — it must not count towards progress.
   await postgres.handle.db
     .update(problems)
     .set({ isPublic: false })
     .where(eq(problems.slug, "zad-c"));
 
-  const passwordHash = await hashPassword("bardzo-tajne-haslo");
+  const passwordHash = await hashPassword("integration-test-password");
   await createUser(postgres.handle.db, {
     email: "admin@example.com",
     passwordHash,
@@ -70,14 +70,14 @@ beforeAll(async () => {
     role: "ADMIN",
   });
   const user = await createUser(postgres.handle.db, {
-    email: "zawodnik@example.com",
+    email: "contestant@example.com",
     passwordHash,
-    displayName: "Zawodnik",
+    displayName: "Contestant",
   });
   userId = user.id;
 
   adminCookie = await loginAs("admin@example.com");
-  userCookie = await loginAs("zawodnik@example.com");
+  userCookie = await loginAs("contestant@example.com");
 });
 
 afterAll(async () => {
@@ -85,8 +85,8 @@ afterAll(async () => {
   await postgres?.stop();
 });
 
-describe("tworzenie zestawu", () => {
-  it("wymaga admina", async () => {
+describe("creating a set", () => {
+  it("requires an admin", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/problem-sets",
@@ -97,19 +97,19 @@ describe("tworzenie zestawu", () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it("nowy zestaw jest szkicem", async () => {
+  it("creates a new set as a draft", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/admin/problem-sets",
       headers: { cookie: adminCookie },
-      payload: { slug: "dp-podstawy", title: "DP dla początkujących" },
+      payload: { slug: "dp-basics", title: "DP for beginners" },
     });
 
     expect(response.statusCode).toBe(201);
     expect(response.json().isPublic).toBe(false);
   });
 
-  it("szkicu nie widać publicznie", async () => {
+  it("keeps a draft off the public list", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problem-sets",
@@ -119,8 +119,8 @@ describe("tworzenie zestawu", () => {
   });
 });
 
-describe("zawartość zestawu", () => {
-  it("ustawia zadania w podanej kolejności", async () => {
+describe("set contents", () => {
+  it("stores the problems in the order given", async () => {
     const response = await app.inject({
       method: "PUT",
       url: "/api/admin/problem-sets/dp-podstawy/items",
@@ -131,7 +131,7 @@ describe("zawartość zestawu", () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it("odrzuca nieistniejące zadanie i mówi które", async () => {
+  it("rejects a missing problem and names it", async () => {
     const response = await app.inject({
       method: "PUT",
       url: "/api/admin/problem-sets/dp-podstawy/items",
@@ -143,7 +143,7 @@ describe("zawartość zestawu", () => {
     expect(response.json().slugs).toEqual(["nie-ma-takiego"]);
   });
 
-  it("odrzuca to samo zadanie dwa razy", async () => {
+  it("rejects the same problem twice in one set", async () => {
     const response = await app.inject({
       method: "PUT",
       url: "/api/admin/problem-sets/dp-podstawy/items",
@@ -155,7 +155,7 @@ describe("zawartość zestawu", () => {
     expect(response.json().slugs).toEqual(["zad-a"]);
   });
 
-  it("nieudana zmiana nie psuje poprzedniej zawartości", async () => {
+  it("leaves the previous contents intact when a change fails", async () => {
     await app.inject({
       method: "PATCH",
       url: "/api/admin/problem-sets/dp-podstawy",
@@ -168,7 +168,7 @@ describe("zawartość zestawu", () => {
       url: "/api/problem-sets/dp-podstawy",
     });
 
-    // Transakcja wycofała skasowanie pozycji — kolejność z pierwszego zapisu.
+    // The transaction rolled back the deletion — the order from the first write.
     expect(response.json().problems.map((p: { slug: string }) => p.slug)).toEqual([
       "zad-b",
       "zad-a",
@@ -176,8 +176,8 @@ describe("zawartość zestawu", () => {
   });
 });
 
-describe("widok publiczny", () => {
-  it("pomija zadania nieopublikowane", async () => {
+describe("the public view", () => {
+  it("skips unpublished problems", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problem-sets/dp-podstawy",
@@ -188,7 +188,7 @@ describe("widok publiczny", () => {
     expect(slugs).toHaveLength(2);
   });
 
-  it("dla niezalogowanego nie liczy postępu", async () => {
+  it("reports no progress for a signed-out visitor", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problem-sets",
@@ -203,7 +203,7 @@ describe("widok publiczny", () => {
     ]);
   });
 
-  it("dla zalogowanego bez zaliczeń pokazuje zero", async () => {
+  it("reports zero for a signed-in user with no solves", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problem-sets",
@@ -216,7 +216,7 @@ describe("widok publiczny", () => {
     });
   });
 
-  it("liczy postęp po zaliczonym submicie", async () => {
+  it("counts progress after an accepted submission", async () => {
     const [problem] = await postgres.handle.db
       .select()
       .from(problems)
@@ -248,7 +248,7 @@ describe("widok publiczny", () => {
     expect(solved.map((p: { slug: string }) => p.slug)).toEqual(["zad-a"]);
   });
 
-  it("submit bez AC nie liczy się jako zaliczenie", async () => {
+  it("does not count a non-accepted submission as a solve", async () => {
     const [problem] = await postgres.handle.db
       .select()
       .from(problems)
@@ -271,7 +271,7 @@ describe("widok publiczny", () => {
     expect(response.json()[0].solvedCount).toBe(1);
   });
 
-  it("postęp jednego użytkownika nie przecieka do drugiego", async () => {
+  it("never leaks one user's progress into another's", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/problem-sets",
@@ -282,8 +282,8 @@ describe("widok publiczny", () => {
   });
 });
 
-describe("usuwanie zestawu", () => {
-  it("nie kasuje zadań, tylko przypisania", async () => {
+describe("deleting a set", () => {
+  it("deletes the assignments, not the problems", async () => {
     const response = await app.inject({
       method: "DELETE",
       url: "/api/admin/problem-sets/dp-podstawy",
