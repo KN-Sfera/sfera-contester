@@ -5,6 +5,7 @@ asynchronous judging through a queue, an admin panel for authoring problems and 
 sets, and a contest module with ICPC rules and a live leaderboard. Code runs inside **Judge0 CE**
 (Isolate in Docker).
 
+
 Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md). Frontend rebuild plan:
 [docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md).
 
@@ -317,6 +318,3 @@ packages/shared        types, languages, the comparer, ICPC scoring
 data/problems          problem seeds (JSON)
 docker/judge0          judge0.conf
 ```
-
-More context: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md).
