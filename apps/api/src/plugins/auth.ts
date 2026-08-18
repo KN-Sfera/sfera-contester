@@ -25,7 +25,7 @@ declare module "fastify" {
     clearSession: (reply: FastifyReply) => void;
   }
   interface FastifyRequest {
-    /** Ustawiane przez requireAuth. Poza chronionymi trasami jest undefined. */
+    /** Set by requireAuth. Undefined outside protected routes. */
     currentUser?: PublicUser;
   }
 }
@@ -38,8 +38,8 @@ declare module "@fastify/jwt" {
 }
 
 /**
- * Owinięte w fastify-plugin — bez tego dekoratory zostałyby zamknięte
- * w kontekście pluginu i `app.requireAuth` nie istniałoby w routach.
+ * Wrapped in fastify-plugin — without it the decorators would stay scoped to
+ * the plugin and `app.requireAuth` would not exist in the routes.
  */
 async function plugin(app: FastifyInstance): Promise<void> {
   await app.register(cookie);
@@ -66,9 +66,9 @@ async function plugin(app: FastifyInstance): Promise<void> {
   });
 
   /**
-   * Ustawia `request.currentUser` albo odsyła 401. Zwraca informację, czy
-   * przetwarzanie ma iść dalej — dzięki temu requireRole nie musi wywoływać
-   * hooka z wnętrza hooka ani zgadywać po `reply.sent`.
+   * Sets `request.currentUser` or replies 401. Returns whether processing
+   * should continue — so requireRole need not call a hook from inside a hook,
+   * nor guess from `reply.sent`.
    */
   async function authenticate(
     request: FastifyRequest,
@@ -82,12 +82,12 @@ async function plugin(app: FastifyInstance): Promise<void> {
       return false;
     }
 
-    // Podpis to za mało — token mógł zostać unieważniony przez wylogowanie
-    // albo zmianę hasła.
+    // A valid signature is not enough — the token may have been voided by a
+    // sign-out or a password change.
     const user = await resolveSession(request.server.db, claims);
     if (!user) {
       request.server.clearSession(reply);
-      await reply.code(401).send({ error: "Sesja wygasła" });
+      await reply.code(401).send({ error: "Your session has expired" });
       return false;
     }
 
@@ -104,7 +104,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
       if (!(await authenticate(request, reply))) return;
 
       if (request.currentUser?.role !== role) {
-        await reply.code(403).send({ error: "Brak uprawnień" });
+        await reply.code(403).send({ error: "You do not have access to this" });
       }
     }) as preHandlerHookHandler;
   });

@@ -3,8 +3,8 @@ import { problems, testCases, type Database } from "@sfera/db";
 import type { Problem, ProblemSummary } from "@sfera/shared";
 
 /**
- * Surowy dostęp do zadań — zwraca też testy ukryte. Warstwa HTTP nie sięga tu
- * bezpośrednio; jedyną drogą na zewnątrz jest projekcja z `service.ts`.
+ * Raw access to problems — hidden tests included. The HTTP layer never reaches
+ * in here directly; the only way out is the projection in `service.ts`.
  */
 
 export async function listPublicProblems(
@@ -45,8 +45,8 @@ export async function listPublicProblems(
 }
 
 /**
- * Tylko zadania opublikowane. Dostęp admina do szkiców dojdzie w Fazie 2 razem
- * z panelem — do tego czasu nie ma ścieżki, którą dałoby się je podejrzeć.
+ * Published problems only. Admin access to drafts arrives in Phase 2 with the
+ * panel — until then there is no path by which they could be viewed.
  */
 export async function findPublicProblemBySlug(
   db: Database,

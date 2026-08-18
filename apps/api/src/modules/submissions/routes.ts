@@ -21,7 +21,7 @@ const submitSchema = z.object({
     .min(1)
     .refine(
       (value) => Buffer.byteLength(value, "utf8") <= MAX_SOURCE_BYTES,
-      `Kod przekracza ${MAX_SOURCE_BYTES} bajtów`,
+      `The code exceeds ${MAX_SOURCE_BYTES} bytes`,
     ),
 });
 
@@ -44,11 +44,11 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
           language: parsed.data.language as LanguageId,
           source: parsed.data.source,
         });
-        // 202: przyjęte do oceniania, wynik przyjdzie później.
+        // 202: accepted for judging, the result comes later.
         return reply.code(202).send(result);
       } catch (error) {
         if (error instanceof ProblemNotAvailableError) {
-          return reply.code(404).send({ error: "Zadanie nie istnieje" });
+          return reply.code(404).send({ error: "No such problem" });
         }
         throw error;
       }
@@ -70,10 +70,10 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
         request.currentUser!.id,
       );
 
-      // Cudzy submit i nieistniejący submit dają to samo 404 — inaczej endpoint
-      // pozwalałby sprawdzać, czy dany identyfikator istnieje.
+      // Someone else's submission and a missing one both return 404 —
+      // otherwise the endpoint would let anyone probe which ids exist.
       if (!submission) {
-        return reply.code(404).send({ error: "Nie ma takiego submitu" });
+        return reply.code(404).send({ error: "No such submission" });
       }
       return submission;
     },
@@ -87,11 +87,11 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
 
       const owned = await findUserSubmission(app.db, submissionId, userId);
       if (!owned) {
-        return reply.code(404).send({ error: "Nie ma takiego submitu" });
+        return reply.code(404).send({ error: "No such submission" });
       }
 
-      // Subskrybujemy PRZED odczytem statusu. Odwrotna kolejność gubiłaby
-      // zdarzenia, które padły w oknie między sprawdzeniem a subskrypcją.
+      // We subscribe BEFORE reading the status. The other order would lose
+      // events fired in the window between the check and the subscription.
       let unsubscribe = async (): Promise<void> => {};
       const stream = openSseStream(reply, () => {
         void unsubscribe();
@@ -104,8 +104,8 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
         }
       });
 
-      // Submit mógł zostać oceniony, zanim klient się podłączył — wtedy nie
-      // przyjdzie już żadne zdarzenie i strumień wisiałby w nieskończoność.
+      // The submission may have been judged before the client connected —
+      // then no event will ever arrive and the stream would hang forever.
       const current = await findUserSubmission(app.db, submissionId, userId);
       if (current?.status === "DONE" && current.verdict) {
         stream.sendNamed("done", {
@@ -119,7 +119,7 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
         stream.sendNamed("failed", {
           type: "failed",
           submissionId,
-          message: "Ocenianie nie powiodło się",
+          message: "Judging failed",
         });
         stream.close();
       }

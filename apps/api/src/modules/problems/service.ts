@@ -3,9 +3,9 @@ import type { Problem, ProblemSummary, ProblemTestCase } from "@sfera/shared";
 import { findPublicProblemBySlug, listPublicProblems } from "./repository.js";
 
 /**
- * Kształt zadania widoczny dla zawodnika. Świadomie nie zawiera ukrytych testów —
- * to jedyna projekcja, jakiej wolno używać warstwie HTTP. Routes nie sięgają do
- * repozytorium bezpośrednio, żeby nie dało się tego filtra ominąć.
+ * The shape of a problem a contestant sees. It deliberately excludes hidden
+ * tests — this is the only projection the HTTP layer may use. Routes never reach
+ * into the repository directly, so the filter cannot be bypassed.
  */
 export interface PublicProblem {
   slug: string;
@@ -43,8 +43,8 @@ export interface LoadedSampleCases {
 }
 
 /**
- * Sample do uruchomienia w playgroundzie. Ukryte testy trafią do oceniania
- * dopiero w workerze (Faza 1.4), który nie odsyła ich treści do przeglądarki.
+ * Samples for a playground run. Hidden tests reach judging only in the worker
+ * (Phase 1.4), which never sends their contents back to the browser.
  */
 export async function getSampleTestCases(
   db: Database,

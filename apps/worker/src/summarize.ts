@@ -3,21 +3,21 @@ import type { TestOutcome } from "./repository.js";
 
 export interface RunSummary {
   verdict: Exclude<Verdict, "OK">;
-  /** Numer testu, na którym poległo. `null` przy AC. */
+  /** The test it failed on. `null` when accepted. */
   failedTestOrdinal: number | null;
   maxTime: number | null;
   maxMemory: number | null;
 }
 
 /**
- * Zbiera wyniki poszczególnych testów w werdykt całego submitu.
+ * Folds the individual test results into a verdict for the whole submission.
  *
- * Czysta funkcja bez I/O — to najbardziej podatny na błędy fragment oceniania,
- * więc musi dać się przetestować bez bazy i bez Judge0.
+ * A pure function with no I/O — this is the most error-prone piece of judging,
+ * so it has to be testable without a database and without Judge0.
  */
 export function summarizeRun(outcomes: TestOutcome[]): RunSummary {
   if (outcomes.length === 0) {
-    // Zadanie bez testów nie jest zaliczone — to błąd konfiguracji, nie sukces.
+    // A problem with no tests is not solved — that is a misconfiguration, not a success.
     return { verdict: "SE", failedTestOrdinal: null, maxTime: null, maxMemory: null };
   }
 
@@ -38,7 +38,7 @@ export function summarizeRun(outcomes: TestOutcome[]): RunSummary {
   };
 }
 
-/** Judge0 podaje czas jako string sekund albo null. */
+/** Judge0 reports the time as a string of seconds, or null. */
 export function parseTime(value: string | null): number | null {
   if (value === null) return null;
   const parsed = Number.parseFloat(value);

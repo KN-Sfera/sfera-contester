@@ -19,11 +19,11 @@ export const contestVisibility = pgEnum("contest_visibility", [
 ]);
 
 /**
- * Konkurs w regułach ICPC.
+ * A contest under ICPC rules.
  *
- * Świadomie **nie** ma kolumny ze statusem (przed startem / trwa / zakończony) —
- * status wynika z `starts_at` i `duration_minutes`, a przechowywany wymagałby
- * zadania cyklicznego i potrafiłby się rozjechać z zegarem.
+ * There is deliberately **no** status column (upcoming / running / finished) —
+ * the status follows from `starts_at` and `duration_minutes`, and storing it
+ * would need a scheduled job and could drift out of step with the clock.
  */
 export const contests = pgTable("contests", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -32,18 +32,18 @@ export const contests = pgTable("contests", {
   description: text("description").notNull().default(""),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   durationMinutes: integer("duration_minutes").notNull(),
-  /** Kara za błędny submit przed zaliczeniem. ICPC: 20. */
+  /** Penalty for a failed submission before the accepted one. ICPC: 20. */
   penaltyMinutes: integer("penalty_minutes").notNull().default(20),
-  /** Długość zamrożenia tablicy na końcu. ICPC: 60. Zero wyłącza freeze. */
+  /** How long the scoreboard freezes at the end. ICPC: 60. Zero disables it. */
   freezeMinutes: integer("freeze_minutes").notNull().default(60),
-  /** Na ICPC World Finals nieudana kompilacja nie liczy się jako próba. */
+  /** At the ICPC World Finals a failed compilation does not count as an attempt. */
   compileErrorCountsAsAttempt: boolean("compile_error_counts_as_attempt")
     .notNull()
     .default(false),
-  /** Ręczne odmrożenie tablicy po zakończeniu — moment ogłoszenia wyników. */
+  /** Manual unfreeze after the contest — the moment results are announced. */
   unfrozen: boolean("unfrozen").notNull().default(false),
   visibility: contestVisibility("visibility").notNull().default("PRIVATE"),
-  /** Otwarta rejestracja czy admin dopisuje zawodników ręcznie. */
+  /** Open registration, or an admin adding contestants by hand. */
   registrationOpen: boolean("registration_open").notNull().default(false),
   createdBy: uuid("created_by").references(() => users.id, {
     onDelete: "set null",
@@ -96,7 +96,7 @@ export const contestParticipants = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    /** Nieoficjalni startują poza konkursem — widoczni, ale poza rankingiem. */
+    /** Unofficial entrants compete outside the contest — visible, but unranked. */
     isOfficial: boolean("is_official").notNull().default(true),
     displayName: varchar("display_name", { length: 120 }).notNull(),
     registeredAt: timestamp("registered_at", { withTimezone: true })
@@ -112,10 +112,10 @@ export const contestParticipants = pgTable(
 );
 
 /**
- * Pytania do zadań i ogłoszenia sędziów.
+ * Questions about problems, and announcements from the judges.
  *
- * `asked_by = NULL` oznacza ogłoszenie od admina do wszystkich, a nie pytanie.
- * `problem_id = NULL` — sprawa dotyczy całego konkursu.
+ * `asked_by = NULL` marks an admin announcement to everyone, not a question.
+ * `problem_id = NULL` means it concerns the whole contest.
  */
 export const clarifications = pgTable(
   "clarifications",
@@ -132,7 +132,7 @@ export const clarifications = pgTable(
     }),
     question: text("question").notNull(),
     answer: text("answer"),
-    /** Odpowiedź widoczna dla wszystkich, nie tylko dla pytającego. */
+    /** An answer visible to everyone, not only to whoever asked. */
     isPublic: boolean("is_public").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

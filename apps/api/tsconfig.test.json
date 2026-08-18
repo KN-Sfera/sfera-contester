@@ -2,8 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    // Sam typecheck — nic nie emitujemy, więc rootDir z tsconfig.json nie ma
-    // zastosowania, a katalog test/ leży obok src/.
+    // Type checking only — nothing is emitted, so the rootDir from
+    // tsconfig.json does not apply, and test/ sits next to src/.
     "rootDir": ".",
     "types": ["node", "vitest/globals"]
   },

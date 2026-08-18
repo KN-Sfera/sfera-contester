@@ -3,7 +3,7 @@ import { runMigrations } from "../migrate.js";
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error("DATABASE_URL nie jest ustawione");
+  console.error("DATABASE_URL is not set");
   process.exit(1);
 }
 

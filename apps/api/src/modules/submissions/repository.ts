@@ -50,7 +50,7 @@ export async function createSubmission(
   input: {
     userId: string;
     problemId: string;
-    /** NULL dla submitów ćwiczeniowych. */
+    /** NULL for practice submissions. */
     contestId?: string;
     language: LanguageId;
     source: string;
@@ -86,12 +86,13 @@ export async function listUserSubmissions(
 }
 
 /**
- * Szczegóły submitu wraz z wynikami per test.
+ * Submission details together with per-test results.
  *
- * Świadomie **nie** zwraca `stderr` ani `compile_output` z poszczególnych testów —
- * na ukrytych testach potrafią zdradzić dane wejściowe. Zawodnik dostaje numer
- * testu i werdykt; wyjście kompilatora wraca osobno, bo dotyczy całego submitu,
- * nie konkretnego testu.
+ * It deliberately does **not** return `stderr` or `compile_output` from
+ * individual tests — on hidden tests those can leak the input. The contestant
+ * gets a test number and a verdict; compiler output comes back separately,
+ * because it concerns the whole submission,
+ * not a particular test.
  */
 export async function findUserSubmission(
   db: Database,

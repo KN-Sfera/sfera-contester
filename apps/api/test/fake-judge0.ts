@@ -3,12 +3,13 @@ import type { RunResult, Verdict } from "@sfera/shared";
 
 export interface FakeJudge0 extends Judge0Client {
   calls: ExecuteInput[];
-  /** Kolejne werdykty do oddania. Po wyczerpaniu listy zwraca AC. */
+  /** The verdicts to hand back in turn. Once the list runs out it returns AC. */
   script: (verdicts: Verdict[]) => void;
 }
 
 /**
- * Judge0 zastąpiony skryptem werdyktów. Pozwala testować walidację zadań
+ * Judge0 replaced by a scripted list of verdicts. It lets us test problem
+ * validation
  * i playground bez odpalania sandboxa.
  */
 export function createFakeJudge0(): FakeJudge0 {

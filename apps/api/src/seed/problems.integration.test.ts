@@ -8,7 +8,7 @@ import { seedProblem } from "./problems.js";
 const baseFile: ProblemFile = {
   slug: "seed-test",
   title: "A + B",
-  statement: "Wypisz sumę.",
+  statement: "Print the sum.",
   timeLimit: 2,
   memoryLimit: 128000,
   testCases: [
@@ -43,7 +43,7 @@ function loadTestCases(slug: string) {
 }
 
 describe("seedProblem", () => {
-  it("dodaje zadanie jako publiczne i numeruje testy od 1", async () => {
+  it("adds a problem as public and numbers its tests from 1", async () => {
     const report = await seedProblem(postgres.handle.db, baseFile);
 
     expect(report.created).toBe(true);
@@ -61,7 +61,7 @@ describe("seedProblem", () => {
     expect(cases[1]!.isSample).toBe(false);
   });
 
-  it("jest idempotentny — drugi przebieg nie duplikuje testów", async () => {
+  it("is idempotent — a second run does not duplicate tests", async () => {
     const report = await seedProblem(postgres.handle.db, baseFile);
 
     expect(report.created).toBe(false);
@@ -69,9 +69,9 @@ describe("seedProblem", () => {
     expect(cases).toHaveLength(2);
   });
 
-  it("zachowuje id testów przy powtórnym seedzie", async () => {
-    // To dlatego aktualizujemy po ordinal zamiast kasować i wstawiać od nowa —
-    // inaczej submission_results traciłoby powiązanie przy każdym seedzie.
+  it("keeps test ids across a repeated seed", async () => {
+    // This is why we update by ordinal instead of deleting and reinserting —
+    // otherwise submission_results would lose its link on every seed.
     const before = await loadTestCases("seed-test");
     await seedProblem(postgres.handle.db, baseFile);
     const after = await loadTestCases("seed-test");
@@ -81,7 +81,7 @@ describe("seedProblem", () => {
     );
   });
 
-  it("aktualizuje treść zmienionego testu", async () => {
+  it("updates the contents of a changed test", async () => {
     await seedProblem(postgres.handle.db, {
       ...baseFile,
       testCases: [
@@ -95,7 +95,7 @@ describe("seedProblem", () => {
     expect(cases[0]!.expectedOutput).toBe("14\n");
   });
 
-  it("usuwa testy, które zniknęły z pliku", async () => {
+  it("deletes tests that vanished from the file", async () => {
     await seedProblem(postgres.handle.db, {
       ...baseFile,
       testCases: [{ input: "1 1\n", expectedOutput: "2\n", isSample: true }],
@@ -106,10 +106,10 @@ describe("seedProblem", () => {
     expect(cases[0]!.ordinal).toBe(1);
   });
 
-  it("aktualizuje metadane zadania", async () => {
+  it("updates a problem's metadata", async () => {
     await seedProblem(postgres.handle.db, {
       ...baseFile,
-      title: "Nowy tytuł",
+      title: "New title",
       timeLimit: 5,
     });
 
@@ -117,7 +117,7 @@ describe("seedProblem", () => {
       .select()
       .from(problems)
       .where(eq(problems.slug, "seed-test"));
-    expect(problem!.title).toBe("Nowy tytuł");
+    expect(problem!.title).toBe("New title");
     expect(problem!.timeLimit).toBe(5);
   });
 });

@@ -33,7 +33,7 @@ const slugSchema = z
   .string()
   .min(1)
   .max(64)
-  .regex(/^[a-z0-9-]+$/, "slug: tylko małe litery, cyfry i myślniki");
+  .regex(/^[a-z0-9-]+$/, "slug: lowercase letters, digits and hyphens only");
 
 const createSchema = z.object({
   slug: slugSchema,
@@ -70,7 +70,7 @@ const solutionSchema = z.object({
     .min(1)
     .refine(
       (value) => Buffer.byteLength(value, "utf8") <= MAX_SOURCE_BYTES,
-      `Kod przekracza ${MAX_SOURCE_BYTES} bajtów`,
+      `The code exceeds ${MAX_SOURCE_BYTES} bytes`,
     ),
 });
 
@@ -88,7 +88,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     handler: async (request, reply) => {
       const problem = await findProblemForAdmin(app.db, request.params.slug);
       if (!problem) {
-        return reply.code(404).send({ error: "Nie ma takiego zadania" });
+        return reply.code(404).send({ error: "No such problem" });
       }
       return problem;
     },
@@ -104,10 +104,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
       const existing = await findProblemForAdmin(app.db, parsed.data.slug);
       if (existing) {
-        return reply.code(409).send({ error: "Slug jest już zajęty" });
+        return reply.code(409).send({ error: "That slug is taken" });
       }
 
-      // Nowe zadanie zawsze startuje jako szkic — publikacja wymaga wzorcówki.
+      // A new problem always starts as a draft — publishing needs a reference solution.
       const problem = await insertProblem(app.db, {
         ...parsed.data,
         createdBy: request.currentUser!.id,
@@ -130,7 +130,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         parsed.data,
       );
       if (!problem) {
-        return reply.code(404).send({ error: "Nie ma takiego zadania" });
+        return reply.code(404).send({ error: "No such problem" });
       }
       return problem;
     },
@@ -146,7 +146,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
       const problem = await findProblemForAdmin(app.db, request.params.slug);
       if (!problem) {
-        return reply.code(404).send({ error: "Nie ma takiego zadania" });
+        return reply.code(404).send({ error: "No such problem" });
       }
 
       await replaceTestCases(app.db, problem.id, parsed.data.testCases);
@@ -189,7 +189,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         return { published: true, ...run };
       } catch (error) {
         if (error instanceof ReferenceSolutionFailedError) {
-          // 422: żądanie jest poprawne, ale zadanie nie nadaje się do publikacji.
+          // 422: the request is valid, but the problem is not fit to publish.
           return reply
             .code(422)
             .send({ error: error.message, published: false, ...error.run });
@@ -216,7 +216,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     handler: async (request, reply) => {
       const problem = await findProblemForAdmin(app.db, request.params.slug);
       if (!problem) {
-        return reply.code(404).send({ error: "Nie ma takiego zadania" });
+        return reply.code(404).send({ error: "No such problem" });
       }
 
       // Format zgodny z data/problems/*.json — to samo, co przyjmuje seed.
@@ -251,8 +251,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       const existing = await findProblemForAdmin(app.db, parsed.data.slug);
       const report = await seedProblem(app.db, parsed.data);
 
-      // Import nie publikuje — świeżo wgrane zadanie i tak musi przejść
-      // walidację wzorcówką. `seedProblem` ustawia isPublic, więc cofamy.
+      // Importing does not publish — a freshly uploaded problem still has to
+      // pass reference validation. `seedProblem` sets isPublic, so we undo it.
       if (!existing?.isPublic) {
         await unpublishProblem(app.db, parsed.data.slug);
       }
@@ -268,12 +268,12 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       handler: async (request, reply) => {
         const problem = await findProblemForAdmin(app.db, request.params.slug);
         if (!problem) {
-          return reply.code(404).send({ error: "Nie ma takiego zadania" });
+          return reply.code(404).send({ error: "No such problem" });
         }
 
         const upload = await request.file();
         if (!upload) {
-          return reply.code(400).send({ error: "Brak pliku w żądaniu" });
+          return reply.code(400).send({ error: "No file in the request" });
         }
 
         const sampleCount = Number.parseInt(
@@ -302,7 +302,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     handler: async (request, reply) => {
       const removed = await deleteProblem(app.db, request.params.slug);
       if (!removed) {
-        return reply.code(404).send({ error: "Nie ma takiego zadania" });
+        return reply.code(404).send({ error: "No such problem" });
       }
       return reply.code(204).send();
     },

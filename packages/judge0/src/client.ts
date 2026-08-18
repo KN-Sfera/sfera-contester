@@ -61,7 +61,7 @@ export function mapVerdict(status: Judge0Status): Verdict {
   return mapJudge0Status(status);
 }
 
-/** Rzucane, gdy Judge0 jest nieosiągalny lub odpowiada błędem — nadaje się do retry. */
+/** Thrown when Judge0 is unreachable or answers with an error — retryable. */
 export class Judge0UnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -84,8 +84,8 @@ export interface Judge0Client {
 }
 
 /**
- * Baza URL jest parametrem, a nie odczytem z env — dzięki temu tej samej paczki
- * używa API i worker, każdy ze swoją konfiguracją.
+ * The base URL is a parameter rather than read from the environment — that way
+ * the API and the worker share this package, each with its own configuration.
  */
 export function createJudge0Client(options: { baseUrl: string }): Judge0Client {
   const baseUrl = options.baseUrl.replace(/\/$/, "");

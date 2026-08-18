@@ -34,20 +34,20 @@ declare module "fastify" {
 export interface BuildAppOptions {
   logger?: boolean;
   /**
-   * Gotowe połączenie — testy integracyjne podają tu bazę z Testcontainers.
-   * Bez tego app zakłada własną pulę i zamyka ją razem z sobą.
+   * A ready-made connection — integration tests pass a Testcontainers database
+   * here. Without it the app opens its own pool and closes it with itself.
    */
   database?: DatabaseHandle;
-  /** Testy podstawiają atrapę, żeby nie potrzebować Redisa do sprawdzenia HTTP. */
+  /** Tests substitute a fake so that checking HTTP does not require Redis. */
   queue?: JudgeQueue;
   progressBus?: JudgeProgressBus;
-  /** Testy podstawiają skryptowany klient zamiast prawdziwego sandboxa. */
+  /** Tests substitute a scripted client instead of the real sandbox. */
   judge0?: Judge0Client;
 }
 
 /**
- * Buduje instancję Fastify bez nasłuchiwania na porcie — dzięki temu testy mogą
- * uderzać w endpointy przez `app.inject()` bez podnoszenia serwera.
+ * Builds a Fastify instance without listening on a port — that lets tests hit
+ * the endpoints through `app.inject()` without starting a server.
  */
 export async function buildApp(
   options: BuildAppOptions = {},
@@ -61,10 +61,10 @@ export async function buildApp(
     app.addHook("onClose", () => database.close());
   }
 
-  // Połączenie do Redisa powstaje leniwie — dzięki temu app z wstrzykniętymi
-  // atrapami nie łączy się nigdzie. Wcześniej wystarczyło podać samą kolejkę
-  // bez szyny, żeby test po cichu otworzył prawdziwe połączenie i zawisł
-  // w nieskończonych retry ioredisa.
+  // The Redis connection is created lazily, so an app with injected fakes
+  // connects to nothing. Previously, passing only the queue without the bus was
+  // enough for a test to quietly open a real connection and hang in ioredis's
+  // infinite retries.
   let redis: ReturnType<typeof createRedis> | undefined;
   const sharedRedis = () => (redis ??= createRedis(config.REDIS_URL));
 
@@ -75,8 +75,8 @@ export async function buildApp(
   const ownsProgressBus = options.progressBus === undefined;
   const progressBus =
     options.progressBus ??
-    // Subskrypcje dostają własne połączenia — klient Redisa w trybie subscribe
-    // nie przyjmuje zwykłych komend.
+    // Subscriptions get their own connections — a Redis client in subscribe
+    // mode accepts no ordinary commands.
     createRedisProgressBus({
       publisher: sharedRedis(),
       createSubscriber: () => createRedis(config.REDIS_URL),
@@ -91,11 +91,11 @@ export async function buildApp(
     await redis?.quit();
   });
 
-  // credentials: true — bez tego przeglądarka nie odeśle ciasteczka sesji.
+  // credentials: true — without it the browser will not send the session cookie.
   await app.register(cors, { origin: true, credentials: true });
   await app.register(rateLimit, { max: 30, timeWindow: "1 minute" });
-  // Paczki testów potrafią ważyć kilkadziesiąt MB; limit chroni przed zalaniem
-  // pamięci przez przypadkowy wrzut.
+  // Test archives can run to tens of megabytes; the limit protects memory from
+  // an accidental upload.
   await app.register(multipart, { limits: { fileSize: 64 * 1024 * 1024 } });
   await app.register(authPlugin);
 

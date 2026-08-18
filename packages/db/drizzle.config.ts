@@ -1,7 +1,7 @@
 import { defineConfig } from "drizzle-kit";
 
-// Używane tylko przez `npm run db:generate` (generowanie SQL ze schematu).
-// Runtime migruje przez runMigrations() z src/migrate.ts.
+// Used only by `npm run db:generate` (generating SQL from the schema).
+// At runtime, migrations go through runMigrations() from src/migrate.ts.
 export default defineConfig({
   schema: "./src/schema/index.ts",
   out: "./drizzle",

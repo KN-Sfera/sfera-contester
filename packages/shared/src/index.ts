@@ -69,7 +69,7 @@ export interface RunResult {
 
 export interface ProblemTestCase {
   id: string;
-  /** Kolejność oceniania, liczona od 1. To ją widzi zawodnik ("Test 3/20"). */
+  /** Judging order, counted from 1. This is what a contestant sees ("Test 3/20"). */
   ordinal: number;
   input: string;
   expectedOutput: string;
@@ -95,7 +95,7 @@ export interface ProblemSummary {
 }
 
 export interface SampleRunCaseResult {
-  /** Numer testu, nie jego id — identyfikator z bazy nic zawodnikowi nie mówi. */
+  /** The test number, not its id — a database identifier tells a contestant nothing. */
   ordinal: number;
   verdict: Verdict;
   status: string;

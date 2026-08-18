@@ -15,7 +15,7 @@ import { startTestPostgres, type TestPostgres } from "../../../test/postgres.js"
 const problem: ProblemFile = {
   slug: "sse-test",
   title: "A + B",
-  statement: "Wypisz sumę.",
+  statement: "Print the sum.",
   timeLimit: 2,
   memoryLimit: 128000,
   testCases: [
@@ -45,7 +45,7 @@ beforeAll(async () => {
     url: "/api/auth/register",
     payload: {
       email: "sse@example.com",
-      password: "bardzo-tajne-haslo",
+      password: "integration-test-password",
       displayName: "SSE",
     },
   });
@@ -78,17 +78,17 @@ function openStream(submissionId: string, headers: Record<string, string>) {
   });
 }
 
-/** Czeka, aż strumień faktycznie się podłączy, zanim wypuścimy zdarzenia. */
+/** Waits for the stream to actually connect before we emit any events. */
 async function waitForSubscriber(): Promise<void> {
   for (let i = 0; i < 100; i += 1) {
     if (progressBus.subscriberCount() > 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error("Strumień się nie podłączył");
+  throw new Error("The stream never connected");
 }
 
 describe("GET /api/submissions/:id/events", () => {
-  it("bez zalogowania zwraca 401", async () => {
+  it("returns 401 without a session", async () => {
     const submissionId = await createSubmission();
 
     const response = await openStream(submissionId, {});
@@ -96,22 +96,22 @@ describe("GET /api/submissions/:id/events", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it("cudzy submit zwraca 404", async () => {
+  it("returns 404 for another user's submission", async () => {
     const submissionId = await createSubmission();
 
     await app.inject({
       method: "POST",
       url: "/api/auth/register",
       payload: {
-        email: "podgladacz@example.com",
-        password: "inne-tajne-haslo",
-        displayName: "Podglądacz",
+        email: "watcher@example.com",
+        password: "other-test-password",
+        displayName: "Watcher",
       },
     });
     const intruder = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: "podgladacz@example.com", password: "inne-tajne-haslo" },
+      payload: { email: "watcher@example.com", password: "other-test-password" },
     });
     const session = intruder.cookies.find(
       (item) => item.name === "sfera_session",
@@ -124,7 +124,7 @@ describe("GET /api/submissions/:id/events", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("przekazuje zdarzenia postępu i zamyka strumień po werdykcie", async () => {
+  it("forwards progress events and closes the stream after the verdict", async () => {
     const submissionId = await createSubmission();
 
     const streamPromise = openStream(submissionId, { cookie });
@@ -154,7 +154,7 @@ describe("GET /api/submissions/:id/events", () => {
     expect(response.payload).toContain('"ordinal":1');
   });
 
-  it("zwalnia subskrypcję po zamknięciu strumienia", async () => {
+  it("releases the subscription once the stream closes", async () => {
     const submissionId = await createSubmission();
 
     const streamPromise = openStream(submissionId, { cookie });
@@ -167,19 +167,19 @@ describe("GET /api/submissions/:id/events", () => {
     });
     await streamPromise;
 
-    // Bez tego każde odświeżenie strony zostawiałoby wiszące połączenie Redisa.
+    // Without this every page refresh would leave a dangling Redis connection.
     expect(progressBus.subscriberCount()).toBe(0);
   });
 
-  it("submit oceniony przed podłączeniem od razu dostaje werdykt", async () => {
+  it("delivers the verdict at once for a submission judged before connecting", async () => {
     const submissionId = await createSubmission();
     await postgres.handle.db
       .update(submissions)
       .set({ status: "DONE", verdict: "WA", failedTestOrdinal: 2 })
       .where(eq(submissions.id, submissionId));
 
-    // Żadne zdarzenie już nie przyjdzie — strumień musi odtworzyć stan z bazy,
-    // zamiast wisieć w nieskończoność.
+    // No event will ever arrive — the stream has to replay the state from the
+    // database instead of hanging forever.
     const response = await openStream(submissionId, { cookie });
 
     expect(response.payload).toContain("event: done");
@@ -187,11 +187,11 @@ describe("GET /api/submissions/:id/events", () => {
     expect(response.payload).toContain('"failedTestOrdinal":2');
   });
 
-  it("submit z błędem infrastruktury zamyka strumień zdarzeniem failed", async () => {
+  it("closes the stream with a failed event on an infrastructure error", async () => {
     const submissionId = await createSubmission();
     await postgres.handle.db
       .update(submissions)
-      .set({ status: "FAILED", errorMessage: "Judge0 nieosiągalny" })
+      .set({ status: "FAILED", errorMessage: "Judge0 unreachable" })
       .where(eq(submissions.id, submissionId));
 
     const response = await openStream(submissionId, { cookie });

@@ -37,7 +37,7 @@ const slugSchema = z
   .string()
   .min(1)
   .max(64)
-  .regex(/^[a-z0-9-]+$/, "slug: tylko małe litery, cyfry i myślniki");
+  .regex(/^[a-z0-9-]+$/, "slug: lowercase letters, digits and hyphens only");
 
 const createSchema = z.object({
   slug: slugSchema,
@@ -64,7 +64,7 @@ const submitSchema = z.object({
     .min(1)
     .refine(
       (value) => Buffer.byteLength(value, "utf8") <= MAX_SOURCE_BYTES,
-      `Kod przekracza ${MAX_SOURCE_BYTES} bajtów`,
+      `The code exceeds ${MAX_SOURCE_BYTES} bytes`,
     ),
 });
 
@@ -77,7 +77,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
   ): Promise<ContestRow | null> {
     const contest = await findContestBySlug(app.db, request.params.slug);
     if (!contest) {
-      await reply.code(404).send({ error: "Nie ma takiego konkursu" });
+      await reply.code(404).send({ error: "No such contest" });
       return null;
     }
     return contest;
@@ -98,7 +98,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
 
       const isAdmin = (await currentRole(request)) === "ADMIN";
       if (contest.visibility === "PRIVATE" && !isAdmin) {
-        return reply.code(404).send({ error: "Nie ma takiego konkursu" });
+        return reply.code(404).send({ error: "No such contest" });
       }
 
       const userId = await currentUserId(request);
@@ -120,7 +120,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
       if (!contest.registrationOpen) {
         return reply
           .code(403)
-          .send({ error: "Rejestracja na ten konkurs jest zamknięta" });
+          .send({ error: "Registration for this contest is closed" });
       }
 
       await registerParticipant(app.db, {
@@ -158,7 +158,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
           return reply.code(403).send({ error: error.message });
         }
         if (error instanceof ContestNotRunningError) {
-          // 409: żądanie poprawne, ale konkurs nie jest w stanie je przyjąć.
+          // 409: a valid request, but the contest is in no state to accept it.
           return reply
             .code(409)
             .send({ error: error.message, phase: error.phase });
@@ -200,7 +200,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
         stream.sendNamed("leaderboard", view);
       });
 
-      // Pierwszy stan od razu — klient nie ma czekać do końca cyklu.
+      // The first state immediately — a client should not wait out a cycle.
       stream.sendNamed(
         "leaderboard",
         await broadcaster.push(contest, { isAdmin }),
@@ -223,7 +223,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
 
       if (isAdmin) return all;
 
-      // Zawodnik widzi ogłoszenia, odpowiedzi publiczne i własne pytania.
+      // A contestant sees announcements, public answers and their own questions.
       return all.filter(
         (item) =>
           item.askedBy === null || item.isPublic || item.askedBy === userId,
@@ -280,7 +280,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
 
       const existing = await findContestBySlug(app.db, parsed.data.slug);
       if (existing) {
-        return reply.code(409).send({ error: "Slug jest już zajęty" });
+        return reply.code(409).send({ error: "That slug is taken" });
       }
 
       const [contest] = await app.db
@@ -306,7 +306,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
         .returning();
 
       if (!contest) {
-        return reply.code(404).send({ error: "Nie ma takiego konkursu" });
+        return reply.code(404).send({ error: "No such contest" });
       }
       return contest;
     },
@@ -365,7 +365,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
       const { findUserByEmail } = await import("../auth/repository.js");
       const user = await findUserByEmail(app.db, parsed.data.email);
       if (!user) {
-        return reply.code(404).send({ error: "Nie ma użytkownika o tym adresie" });
+        return reply.code(404).send({ error: "No user with that email" });
       }
 
       await registerParticipant(app.db, {
@@ -392,7 +392,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
           request.params.userId,
         );
         if (!removed) {
-          return reply.code(404).send({ error: "Nie ma takiego zawodnika" });
+          return reply.code(404).send({ error: "No such contestant" });
         }
         return reply.code(204).send();
       },
@@ -429,7 +429,7 @@ export async function contestRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: parsed.error.flatten() });
       }
 
-      // Ogłoszenie to clarification bez pytającego, od razu publiczne.
+      // An announcement is a clarification with no asker, public from the start.
       const created = await insertClarification(app.db, {
         contestId: contest.id,
         problemId: null,

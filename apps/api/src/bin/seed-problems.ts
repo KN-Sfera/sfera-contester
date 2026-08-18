@@ -8,7 +8,7 @@ async function main(): Promise<void> {
 
   const dir = resolveProblemsDir(env.PROBLEMS_DIR);
   const files = readProblemFiles(dir);
-  console.log(`Znaleziono ${files.length} zadań w ${dir}`);
+  console.log(`Found ${files.length} problems in ${dir}`);
 
   await runMigrations(env.DATABASE_URL);
 
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     const reports = await seedProblems(handle.db, files);
     for (const report of reports) {
       const action = report.created ? "dodane" : "zaktualizowane";
-      console.log(`  ${report.slug}: ${action}, ${report.testCaseCount} testów`);
+      console.log(`  ${report.slug}: ${action}, ${report.testCaseCount} tests`);
     }
   } finally {
     await handle.close();

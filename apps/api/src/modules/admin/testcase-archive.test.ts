@@ -14,7 +14,7 @@ function zip(files: Record<string, string>): Uint8Array {
 }
 
 describe("parseTestCaseArchive", () => {
-  it("paruje pliki .in z .out", () => {
+  it("pairs .in files with their .out", () => {
     const cases = parseTestCaseArchive(
       zip({ "1.in": "1 2\n", "1.out": "3\n" }),
     );
@@ -24,7 +24,7 @@ describe("parseTestCaseArchive", () => {
     ]);
   });
 
-  it("sortuje naturalnie — 2 przed 10", () => {
+  it("sorts naturally — 2 before 10", () => {
     const cases = parseTestCaseArchive(
       zip({
         "10.in": "dziesiec",
@@ -39,7 +39,7 @@ describe("parseTestCaseArchive", () => {
     expect(cases.map((c) => c.expectedOutput)).toEqual(["1", "2", "10"]);
   });
 
-  it("pierwszy test jest samplem, reszta ukryta", () => {
+  it("makes the first test a sample and hides the rest", () => {
     const cases = parseTestCaseArchive(
       zip({ "1.in": "a", "1.out": "a", "2.in": "b", "2.out": "b" }),
     );
@@ -47,7 +47,7 @@ describe("parseTestCaseArchive", () => {
     expect(cases.map((c) => c.isSample)).toEqual([true, false]);
   });
 
-  it("liczbę sampli da się ustawić", () => {
+  it("takes the sample count as an option", () => {
     const cases = parseTestCaseArchive(
       zip({
         "1.in": "a",
@@ -63,7 +63,7 @@ describe("parseTestCaseArchive", () => {
     expect(cases.map((c) => c.isSample)).toEqual([true, true, false]);
   });
 
-  it("akceptuje konwencję .txt/.ans", () => {
+  it("accepts the .txt/.ans convention", () => {
     const cases = parseTestCaseArchive(
       zip({ "01.txt": "wejscie", "01.ans": "wyjscie" }),
     );
@@ -73,7 +73,7 @@ describe("parseTestCaseArchive", () => {
     ]);
   });
 
-  it("radzi sobie z testami w podkatalogu", () => {
+  it("copes with tests inside a subdirectory", () => {
     const cases = parseTestCaseArchive(
       zip({ "tests/1.in": "a", "tests/1.out": "b" }),
     );
@@ -81,7 +81,7 @@ describe("parseTestCaseArchive", () => {
     expect(cases).toHaveLength(1);
   });
 
-  it("pomija śmieci z macOS i pliki ukryte", () => {
+  it("skips macOS clutter and hidden files", () => {
     const cases = parseTestCaseArchive(
       zip({
         "1.in": "a",
@@ -94,27 +94,27 @@ describe("parseTestCaseArchive", () => {
     expect(cases).toHaveLength(1);
   });
 
-  it("odrzuca wejście bez oczekiwanego wyjścia", () => {
+  it("rejects an input with no expected output", () => {
     expect(() =>
       parseTestCaseArchive(zip({ "1.in": "a", "1.out": "b", "2.in": "c" })),
     ).toThrow(InvalidArchiveError);
   });
 
-  it("nazywa brakujące pliki po imieniu", () => {
+  it("names the missing files", () => {
     expect(() =>
       parseTestCaseArchive(zip({ "7.in": "a" })),
     ).toThrow(/7/);
   });
 
-  it("odrzuca archiwum bez testów", () => {
-    expect(() => parseTestCaseArchive(zip({ "readme.md": "nic tu nie ma" }))).toThrow(
+  it("rejects an archive with no tests", () => {
+    expect(() => parseTestCaseArchive(zip({ "readme.md": "nothing to see here" }))).toThrow(
       InvalidArchiveError,
     );
   });
 
-  it("odrzuca dane, które nie są ZIP-em", () => {
+  it("rejects data that is not a ZIP", () => {
     expect(() =>
-      parseTestCaseArchive(new TextEncoder().encode("to nie jest zip")),
+      parseTestCaseArchive(new TextEncoder().encode("this is not a zip")),
     ).toThrow(InvalidArchiveError);
   });
 });

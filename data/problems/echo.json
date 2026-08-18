@@ -1,7 +1,7 @@
 {
   "slug": "echo",
   "title": "Echo",
-  "statement": "Wczytaj jedną linię tekstu i wypisz ją bez zmian.\n\nPrzydatne do sprawdzenia stdin/stdout w playgroundzie.",
+  "statement": "Read one line of text and print it back unchanged.\n\nHandy for checking stdin/stdout in the playground.",
   "timeLimit": 1,
   "memoryLimit": 64000,
   "testCases": [

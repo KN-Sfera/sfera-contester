@@ -6,15 +6,16 @@ import { z } from "zod";
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Format seedowy z `data/problems/`. Nie jest już źródłem prawdy w runtime —
- * służy tylko do zasilenia bazy i do wymiany zadań poza aplikacją.
+ * The seed format from `data/problems/`. No longer the source of truth at
+ * runtime — it exists to populate the database and to move problems between
+ * installations.
  */
 export const problemFileSchema = z.object({
   slug: z
     .string()
     .min(1)
     .max(64)
-    .regex(/^[a-z0-9-]+$/, "slug: tylko małe litery, cyfry i myślniki"),
+    .regex(/^[a-z0-9-]+$/, "slug: lowercase letters, digits and hyphens only"),
   title: z.string().min(1).max(200),
   statement: z.string().min(1),
   timeLimit: z.number().positive().max(60),
@@ -37,7 +38,7 @@ export function resolveProblemsDir(explicit?: string): string {
     explicit,
     join(process.cwd(), "data", "problems"),
     join(process.cwd(), "..", "..", "data", "problems"),
-    // dist/seed → korzeń repo
+    // dist/seed → repository root
     join(moduleDir, "..", "..", "..", "..", "data", "problems"),
   ].filter(Boolean) as string[];
 
@@ -49,7 +50,7 @@ export function resolveProblemsDir(explicit?: string): string {
       // try next
     }
   }
-  throw new Error("Nie znaleziono katalogu data/problems");
+  throw new Error("Could not find the data/problems directory");
 }
 
 export function readProblemFiles(dir: string): ProblemFile[] {

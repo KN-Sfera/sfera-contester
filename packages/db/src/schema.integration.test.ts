@@ -31,7 +31,7 @@ afterAll(async () => {
 async function insertUser(email: string) {
   const [user] = await handle.db
     .insert(users)
-    .values({ email, passwordHash: "hash", displayName: "Zawodnik" })
+    .values({ email, passwordHash: "hash", displayName: "Contestant" })
     .returning();
   return user!;
 }
@@ -39,19 +39,19 @@ async function insertUser(email: string) {
 async function insertProblem(slug: string) {
   const [problem] = await handle.db
     .insert(problems)
-    .values({ slug, title: "A + B", statement: "Wypisz sumę." })
+    .values({ slug, title: "A + B", statement: "Print the sum." })
     .returning();
   return problem!;
 }
 
-describe("migracje", () => {
-  it("są idempotentne — drugie wywołanie nic nie psuje", async () => {
+describe("migrations", () => {
+  it("are idempotent — a second run breaks nothing", async () => {
     await expect(
       runMigrations(container.getConnectionUri()),
     ).resolves.toBeUndefined();
   });
 
-  it("tworzą wszystkie tabele schematu", async () => {
+  it("create every table in the schema", async () => {
     const result = await handle.db.execute<{ table_name: string }>(
       sql`select table_name from information_schema.tables
           where table_schema = 'public' order by table_name`,
@@ -71,14 +71,14 @@ describe("migracje", () => {
 });
 
 describe("users", () => {
-  it("nadaje domyślną rolę USER i id", async () => {
+  it("assigns the default USER role and an id", async () => {
     const user = await insertUser("kowalski@example.com");
 
     expect(user.role).toBe("USER");
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("nie pozwala na dwa konta z tym samym adresem", async () => {
+  it("refuses two accounts with the same email", async () => {
     await insertUser("duplikat@example.com");
 
     await expect(insertUser("duplikat@example.com")).rejects.toThrow();
@@ -86,7 +86,7 @@ describe("users", () => {
 });
 
 describe("test_cases", () => {
-  it("nie pozwala na dwa testy o tym samym numerze w zadaniu", async () => {
+  it("refuses two tests with the same ordinal in one problem", async () => {
     const problem = await insertProblem("unikalne-ordinale");
     await handle.db.insert(testCases).values({
       problemId: problem.id,
@@ -105,9 +105,9 @@ describe("test_cases", () => {
     ).rejects.toThrow();
   });
 
-  it("ten sam numer w innym zadaniu jest w porządku", async () => {
-    const first = await insertProblem("zadanie-jeden");
-    const second = await insertProblem("zadanie-dwa");
+  it("allows the same ordinal in a different problem", async () => {
+    const first = await insertProblem("problem-one");
+    const second = await insertProblem("problem-two");
 
     await handle.db.insert(testCases).values([
       { problemId: first.id, ordinal: 1, input: "a", expectedOutput: "a" },
@@ -118,7 +118,7 @@ describe("test_cases", () => {
     expect(rows.filter((row) => row.ordinal === 1).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("znika razem z zadaniem", async () => {
+  it("disappears along with the problem", async () => {
     const problem = await insertProblem("do-usuniecia");
     await handle.db
       .insert(testCases)
@@ -135,7 +135,7 @@ describe("test_cases", () => {
 });
 
 describe("submissions", () => {
-  it("startuje jako QUEUED bez werdyktu", async () => {
+  it("starts as QUEUED with no verdict", async () => {
     const user = await insertUser("queued@example.com");
     const problem = await insertProblem("queued-problem");
 
@@ -155,7 +155,7 @@ describe("submissions", () => {
     expect(submission!.contestId).toBeNull();
   });
 
-  it("wyniki per test znikają razem z submitem", async () => {
+  it("deletes per-test results along with the submission", async () => {
     const user = await insertUser("kaskada@example.com");
     const problem = await insertProblem("kaskada-problem");
     const [testCase] = await handle.db
@@ -188,7 +188,7 @@ describe("submissions", () => {
     expect(left).toHaveLength(0);
   });
 
-  it("wynik przeżywa usunięcie testu — zostaje sam ordinal", async () => {
+  it("keeps a result when its test case is deleted — only the ordinal remains", async () => {
     const user = await insertUser("historia@example.com");
     const problem = await insertProblem("historia-problem");
     const [testCase] = await handle.db

@@ -62,12 +62,12 @@ export async function listContestProblems(
 
 export class UnknownProblemError extends Error {
   constructor(readonly slugs: string[]) {
-    super(`Nie ma zadań: ${slugs.join(", ")}`);
+    super(`No such problems: ${slugs.join(", ")}`);
     this.name = "UnknownProblemError";
   }
 }
 
-/** Litery A, B, C… przydzielane wg kolejności na liście. */
+/** Letters A, B, C… assigned by position in the list. */
 function letterFor(index: number): string {
   return String.fromCharCode(65 + (index % 26));
 }
@@ -153,7 +153,7 @@ export async function registerParticipant(
   await db
     .insert(contestParticipants)
     .values(input)
-    // Powtórna rejestracja nie jest błędem — po prostu nic nie zmienia.
+    // Registering twice is not an error — it simply changes nothing.
     .onConflictDoNothing();
 }
 
@@ -175,10 +175,10 @@ export async function removeParticipant(
 }
 
 /**
- * Submity konkursowe w formacie, którego oczekuje scoring.
+ * Contest submissions in the shape the scoring expects.
  *
- * Bierze tylko ocenione — `QUEUED`/`RUNNING` nie mają jeszcze werdyktu i nie
- * mogą wpływać na ranking.
+ * Judged ones only — `QUEUED`/`RUNNING` have no verdict yet and cannot affect
+ * the ranking.
  */
 export async function loadScoredSubmissions(
   db: Database,

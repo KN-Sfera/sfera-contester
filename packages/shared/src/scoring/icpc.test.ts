@@ -17,7 +17,7 @@ const RULES: ContestRules = {
   compileErrorCountsAsAttempt: false,
 };
 
-/** Submit w `minute` minucie konkursu. */
+/** A submission at contest minute `minute`. */
 function sub(
   participantId: string,
   problemId: string,
@@ -49,14 +49,14 @@ function score(
 }
 
 describe("minutesSinceStart", () => {
-  it("liczy pełne minuty w dół", () => {
+  it("floors to whole minutes", () => {
     expect(minutesSinceStart(START, new Date(START.getTime() + 359_000))).toBe(5);
     expect(minutesSinceStart(START, new Date(START.getTime() + 360_000))).toBe(6);
   });
 });
 
-describe("czas i kara", () => {
-  it("zaliczone za pierwszym razem nie ma kary", () => {
+describe("time and penalty", () => {
+  it("charges no penalty when solved first try", () => {
     const [row] = score([sub("ala", "A", "AC", 17)]);
 
     expect(row!.solvedCount).toBe(1);
@@ -64,7 +64,7 @@ describe("czas i kara", () => {
     expect(row!.problems[0]!.attempts).toBe(0);
   });
 
-  it("każdy błędny submit przed AC to +20 minut", () => {
+  it("adds 20 minutes per failed submission before the accepted one", () => {
     const [row] = score([
       sub("ala", "A", "WA", 5),
       sub("ala", "A", "WA", 10),
@@ -76,7 +76,7 @@ describe("czas i kara", () => {
     expect(row!.problems[0]!.attempts).toBe(2);
   });
 
-  it("błędne submity PO zaliczeniu nie dokładają kary", () => {
+  it("ignores failed submissions AFTER the accepted one", () => {
     const [row] = score([
       sub("ala", "A", "AC", 10),
       sub("ala", "A", "WA", 20),
@@ -87,7 +87,7 @@ describe("czas i kara", () => {
     expect(row!.problems[0]!.attempts).toBe(0);
   });
 
-  it("zadanie nierozwiązane nie generuje kary mimo wielu prób", () => {
+  it("charges no penalty for an unsolved problem, however many attempts", () => {
     const [row] = score([
       sub("ala", "A", "WA", 5),
       sub("ala", "A", "TLE", 15),
@@ -100,13 +100,13 @@ describe("czas i kara", () => {
     expect(row!.problems[0]!.pending).toBe(true);
   });
 
-  it("liczy się pierwsze AC, późniejsze nie zmieniają czasu", () => {
+  it("counts the first accepted submission; later ones do not change the time", () => {
     const [row] = score([sub("ala", "A", "AC", 10), sub("ala", "A", "AC", 40)]);
 
     expect(row!.problems[0]!.solvedAtMinute).toBe(10);
   });
 
-  it("submity nie muszą przychodzić w kolejności chronologicznej", () => {
+  it("does not require submissions to arrive in chronological order", () => {
     const [row] = score([
       sub("ala", "A", "AC", 30),
       sub("ala", "A", "WA", 5),
@@ -115,7 +115,7 @@ describe("czas i kara", () => {
     expect(row!.totalPenalty).toBe(50);
   });
 
-  it("kara jest konfigurowalna", () => {
+  it("takes the penalty from the contest rules", () => {
     const [row] = score([sub("ala", "A", "WA", 1), sub("ala", "A", "AC", 10)], {
       rules: { penaltyMinutes: 5 },
     });
@@ -124,15 +124,15 @@ describe("czas i kara", () => {
   });
 });
 
-describe("werdykty specjalne", () => {
-  it("domyślnie błąd kompilacji nie liczy się jako próba (reguła ICPC WF)", () => {
+describe("special verdicts", () => {
+  it("does not count a compilation error as an attempt by default (ICPC WF rule)", () => {
     const [row] = score([sub("ala", "A", "CE", 5), sub("ala", "A", "AC", 10)]);
 
     expect(row!.totalPenalty).toBe(10);
     expect(row!.problems[0]!.attempts).toBe(0);
   });
 
-  it("da się włączyć karanie za błąd kompilacji", () => {
+  it("can be configured to penalise compilation errors", () => {
     const [row] = score([sub("ala", "A", "CE", 5), sub("ala", "A", "AC", 10)], {
       rules: { compileErrorCountsAsAttempt: true },
     });
@@ -140,7 +140,7 @@ describe("werdykty specjalne", () => {
     expect(row!.totalPenalty).toBe(30);
   });
 
-  it("błąd systemu nigdy nie obciąża zawodnika", () => {
+  it("never charges a contestant for a system error", () => {
     const [row] = score([sub("ala", "A", "SE", 5), sub("ala", "A", "AC", 10)], {
       rules: { compileErrorCountsAsAttempt: true },
     });
@@ -148,7 +148,7 @@ describe("werdykty specjalne", () => {
     expect(row!.totalPenalty).toBe(10);
   });
 
-  it("TLE, MLE i RE liczą się jako próby", () => {
+  it("counts TLE, MLE and RE as attempts", () => {
     const [row] = score([
       sub("ala", "A", "TLE", 1),
       sub("ala", "A", "MLE", 2),
@@ -161,8 +161,8 @@ describe("werdykty specjalne", () => {
   });
 });
 
-describe("kolejność w rankingu", () => {
-  it("więcej rozwiązanych zawsze wyżej, nawet z gorszym czasem", () => {
+describe("ranking order", () => {
+  it("always ranks more solved problems higher, even with a worse time", () => {
     const rows = score(
       [
         sub("ala", "A", "AC", 200),
@@ -175,7 +175,7 @@ describe("kolejność w rankingu", () => {
     expect(rows.map((row) => row.participantId)).toEqual(["ala", "bob"]);
   });
 
-  it("przy równej liczbie zadań decyduje niższa kara", () => {
+  it("breaks a tie on problem count by the lower penalty", () => {
     const rows = score(
       [
         sub("ala", "A", "WA", 1),
@@ -189,7 +189,7 @@ describe("kolejność w rankingu", () => {
     expect(rows.map((row) => row.participantId)).toEqual(["bob", "ala"]);
   });
 
-  it("przy równej karze decyduje wcześniejsze ostatnie zaliczenie", () => {
+  it("breaks a tie on penalty by the earlier last solve", () => {
     const rows = score(
       [
         sub("ala", "A", "AC", 10),
@@ -200,11 +200,11 @@ describe("kolejność w rankingu", () => {
       { participants: ["ala", "bob"], problems: ["A", "B"] },
     );
 
-    // Obie po 60 minut kary; bob skończył w 30, ala w 50.
+    // Both on 60 penalty minutes; bob finished at 30, ala at 50.
     expect(rows.map((row) => row.participantId)).toEqual(["bob", "ala"]);
   });
 
-  it("nierozstrzygnięty remis daje tę samą pozycję", () => {
+  it("gives an unresolved tie the same position", () => {
     const rows = score(
       [sub("ala", "A", "AC", 10), sub("bob", "A", "AC", 10)],
       { participants: ["ala", "bob"] },
@@ -213,7 +213,7 @@ describe("kolejność w rankingu", () => {
     expect(rows.map((row) => row.rank)).toEqual([1, 1]);
   });
 
-  it("po remisie numeracja przeskakuje, nie kontynuuje", () => {
+  it("skips numbers after a tie instead of continuing", () => {
     const rows = score(
       [
         sub("ala", "A", "AC", 10),
@@ -226,7 +226,7 @@ describe("kolejność w rankingu", () => {
     expect(rows.map((row) => row.rank)).toEqual([1, 1, 3]);
   });
 
-  it("zarejestrowani bez submitów są w rankingu na końcu", () => {
+  it("places registered contestants with no submissions at the bottom", () => {
     const rows = score([sub("ala", "A", "AC", 10)], {
       participants: ["ala", "widmo"],
     });
@@ -239,7 +239,7 @@ describe("kolejność w rankingu", () => {
     });
   });
 
-  it("ignoruje submity osób spoza listy zarejestrowanych", () => {
+  it("ignores submissions from outside the registered list", () => {
     const rows = score(
       [sub("ala", "A", "AC", 10), sub("intruz", "A", "AC", 1)],
       { participants: ["ala"] },
@@ -249,7 +249,7 @@ describe("kolejność w rankingu", () => {
     expect(rows[0]!.participantId).toBe("ala");
   });
 
-  it("każdy zawodnik ma wpis dla każdego zadania konkursu", () => {
+  it("gives every contestant an entry for every contest problem", () => {
     const rows = score([], { problems: ["A", "B", "C"] });
 
     expect(rows[0]!.problems.map((problem) => problem.problemId)).toEqual([
@@ -267,23 +267,23 @@ describe("freeze", () => {
     freezeMinutes: 60,
   };
 
-  it("zaczyna się na godzinę przed końcem", () => {
+  it("starts an hour before the end", () => {
     const frozen = freezeStart({ ...CONTEST, unfrozen: false });
 
     expect(frozen).toEqual(new Date(START.getTime() + 240 * 60_000));
   });
 
-  it("po rozmrożeniu nie obowiązuje", () => {
+  it("no longer applies once unfrozen", () => {
     expect(freezeStart({ ...CONTEST, unfrozen: true })).toBeNull();
   });
 
-  it("zerowy freeze oznacza brak zamrożenia", () => {
+  it("treats a zero freeze as no freeze at all", () => {
     expect(
       freezeStart({ ...CONTEST, freezeMinutes: 0, unfrozen: false }),
     ).toBeNull();
   });
 
-  it("ukrywa submity z okresu zamrożenia", () => {
+  it("hides submissions made during the freeze", () => {
     const frozenFrom = new Date(START.getTime() + 240 * 60_000);
     const { visible, hidden } = applyFreeze(
       [sub("ala", "A", "AC", 100), sub("ala", "B", "AC", 250)],
@@ -294,7 +294,7 @@ describe("freeze", () => {
     expect(hidden).toHaveLength(1);
   });
 
-  it("bez freeze'u wszystko jest widoczne", () => {
+  it("shows everything when there is no freeze", () => {
     const { visible, hidden } = applyFreeze([sub("ala", "A", "AC", 250)], {
       frozenFrom: null,
     });
@@ -303,7 +303,7 @@ describe("freeze", () => {
     expect(hidden).toHaveLength(0);
   });
 
-  it("zamrożona tablica pokazuje stan sprzed freeze'u", () => {
+  it("shows the pre-freeze state on a frozen scoreboard", () => {
     const frozenFrom = new Date(START.getTime() + 240 * 60_000);
     const all = [
       sub("ala", "A", "AC", 100),
@@ -325,7 +325,7 @@ describe("freeze", () => {
       submissions: all,
     });
 
-    // Na zamrożonej tablicy bob ma jedno zadanie, naprawdę ma dwa.
+    // On the frozen scoreboard bob has one problem; in truth he has two.
     expect(frozenBoard.find((r) => r.participantId === "bob")!.solvedCount).toBe(1);
     expect(realBoard.find((r) => r.participantId === "bob")!.solvedCount).toBe(2);
   });

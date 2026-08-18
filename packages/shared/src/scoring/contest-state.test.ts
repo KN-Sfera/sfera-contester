@@ -14,53 +14,53 @@ function at(minute: number): Date {
 }
 
 describe("contestPhase", () => {
-  it("przed startem to UPCOMING", () => {
+  it("is UPCOMING before the start", () => {
     expect(contestPhase(WINDOW, at(-1))).toBe("UPCOMING");
   });
 
-  it("dokładnie w momencie startu konkurs już trwa", () => {
+  it("counts the exact start moment as running", () => {
     expect(contestPhase(WINDOW, START)).toBe("RUNNING");
   });
 
-  it("w trakcie to RUNNING", () => {
+  it("is RUNNING while under way", () => {
     expect(contestPhase(WINDOW, at(150))).toBe("RUNNING");
   });
 
-  it("ostatnia sekunda jeszcze się liczy", () => {
+  it("still counts the final second", () => {
     expect(contestPhase(WINDOW, new Date(at(300).getTime() - 1))).toBe("RUNNING");
   });
 
-  it("dokładnie w momencie końca konkurs jest zamknięty", () => {
+  it("counts the exact end moment as finished", () => {
     expect(contestPhase(WINDOW, at(300))).toBe("FINISHED");
   });
 
-  it("po czasie to FINISHED", () => {
+  it("is FINISHED once the time is up", () => {
     expect(contestPhase(WINDOW, at(301))).toBe("FINISHED");
   });
 });
 
 describe("contestEndsAt", () => {
-  it("liczy koniec z długości trwania", () => {
+  it("derives the end from the duration", () => {
     expect(contestEndsAt(WINDOW)).toEqual(at(300));
   });
 });
 
 describe("secondsRemaining", () => {
-  it("podaje czas do końca", () => {
+  it("reports the time remaining", () => {
     expect(secondsRemaining(WINDOW, at(299))).toBe(60);
   });
 
-  it("po zakończeniu nie schodzi poniżej zera", () => {
+  it("does not go below zero once finished", () => {
     expect(secondsRemaining(WINDOW, at(400))).toBe(0);
   });
 });
 
 describe("secondsUntilStart", () => {
-  it("podaje czas do startu", () => {
+  it("reports the time until the start", () => {
     expect(secondsUntilStart(WINDOW, at(-2))).toBe(120);
   });
 
-  it("po starcie to zero", () => {
+  it("is zero once the contest has started", () => {
     expect(secondsUntilStart(WINDOW, at(10))).toBe(0);
   });
 });

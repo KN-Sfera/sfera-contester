@@ -15,7 +15,7 @@ function outcome(partial: Partial<TestOutcome> & { ordinal: number }): TestOutco
 }
 
 describe("summarizeRun", () => {
-  it("same AC dają AC bez numeru błędnego testu", () => {
+  it("returns AC with no failing test number when every test passes", () => {
     const summary = summarizeRun([
       outcome({ ordinal: 1 }),
       outcome({ ordinal: 2 }),
@@ -25,7 +25,7 @@ describe("summarizeRun", () => {
     expect(summary.failedTestOrdinal).toBeNull();
   });
 
-  it("przejmuje werdykt pierwszego niezaliczonego testu", () => {
+  it("takes the verdict of the first failing test", () => {
     const summary = summarizeRun([
       outcome({ ordinal: 1 }),
       outcome({ ordinal: 2, verdict: "TLE" }),
@@ -35,7 +35,7 @@ describe("summarizeRun", () => {
     expect(summary.failedTestOrdinal).toBe(2);
   });
 
-  it("przy kilku błędach liczy się pierwszy", () => {
+  it("reports the first failure when several fail", () => {
     const summary = summarizeRun([
       outcome({ ordinal: 1, verdict: "WA" }),
       outcome({ ordinal: 2, verdict: "RE" }),
@@ -45,7 +45,7 @@ describe("summarizeRun", () => {
     expect(summary.failedTestOrdinal).toBe(1);
   });
 
-  it("bierze najgorszy czas i pamięć ze wszystkich testów", () => {
+  it("takes the worst time and memory across the tests", () => {
     const summary = summarizeRun([
       outcome({ ordinal: 1, time: 0.1, memory: 2048 }),
       outcome({ ordinal: 2, time: 0.9, memory: 1024 }),
@@ -56,14 +56,14 @@ describe("summarizeRun", () => {
     expect(summary.maxMemory).toBe(4096);
   });
 
-  it("radzi sobie z brakiem pomiarów", () => {
+  it("copes with missing measurements", () => {
     const summary = summarizeRun([outcome({ ordinal: 1 })]);
 
     expect(summary.maxTime).toBeNull();
     expect(summary.maxMemory).toBeNull();
   });
 
-  it("pomija brakujące pomiary, gdy część testów je ma", () => {
+  it("skips missing measurements when only some tests report them", () => {
     const summary = summarizeRun([
       outcome({ ordinal: 1, time: null }),
       outcome({ ordinal: 2, time: 0.3 }),
@@ -72,7 +72,7 @@ describe("summarizeRun", () => {
     expect(summary.maxTime).toBe(0.3);
   });
 
-  it("zadanie bez testów to błąd systemu, nie zaliczenie", () => {
+  it("treats a problem with no tests as a system error, not a pass", () => {
     const summary = summarizeRun([]);
 
     expect(summary.verdict).toBe("SE");
@@ -81,16 +81,16 @@ describe("summarizeRun", () => {
 });
 
 describe("parseTime", () => {
-  it("zamienia sekundy z Judge0 na liczbę", () => {
+  it("turns Judge0 seconds into a number", () => {
     expect(parseTime("0.002")).toBe(0.002);
     expect(parseTime("1")).toBe(1);
   });
 
-  it("brak pomiaru zostaje nullem", () => {
+  it("leaves a missing measurement as null", () => {
     expect(parseTime(null)).toBeNull();
   });
 
-  it("śmieci nie stają się NaN w bazie", () => {
+  it("does not let garbage become NaN in the database", () => {
     expect(parseTime("")).toBeNull();
     expect(parseTime("brak")).toBeNull();
   });

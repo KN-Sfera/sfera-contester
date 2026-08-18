@@ -6,11 +6,12 @@ function channel(submissionId: string): string {
 }
 
 /**
- * Postęp leci przez pub/sub Redisa, a nie bezpośrednio z workera do klienta —
- * worker i API to osobne procesy, a w Fazie 5 będą na osobnych hostach.
+ * Progress travels through Redis pub/sub rather than straight from the worker
+ * to the client — the worker and the API are separate processes, and in Phase 5
+ * they will sit on separate hosts.
  *
- * Subskrypcja wymaga osobnego połączenia: klient Redisa w trybie subscribe nie
- * przyjmuje zwykłych komend, więc nie da się współdzielić go z resztą aplikacji.
+ * Subscribing needs its own connection: a Redis client in subscribe mode
+ * accepts no ordinary commands, so it cannot be shared with the rest of the app.
  */
 export function createRedisProgressBus(options: {
   publisher: Redis;
@@ -34,7 +35,7 @@ export function createRedisProgressBus(options: {
         try {
           listener(JSON.parse(payload) as JudgeProgressEvent);
         } catch {
-          // Uszkodzona wiadomość nie może zabić strumienia SSE.
+          // A corrupted message must not kill the SSE stream.
         }
       });
 

@@ -3,7 +3,7 @@ import { buildApp } from "./app.js";
 import { config } from "./config.js";
 
 async function main(): Promise<void> {
-  // Migracje przed nasłuchem — nie chcemy przyjmować ruchu na niegotowym schemacie.
+  // Migrations before listening — we do not want traffic on an unready schema.
   await runMigrations(config.DATABASE_URL);
 
   const app = await buildApp();
