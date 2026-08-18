@@ -13,7 +13,7 @@ import { startTestPostgres, type TestPostgres } from "../../../test/postgres.js"
 const problem: ProblemFile = {
   slug: "submit-test",
   title: "A + B",
-  statement: "Wypisz sumę.",
+  statement: "Print the sum.",
   timeLimit: 2,
   memoryLimit: 128000,
   testCases: [
@@ -24,8 +24,8 @@ const problem: ProblemFile = {
 
 const USER = {
   email: "submitujacy@example.com",
-  password: "bardzo-tajne-haslo",
-  displayName: "Submitujący",
+  password: "integration-test-password",
+  displayName: "Submitter",
 };
 
 let postgres: TestPostgres;
@@ -77,7 +77,7 @@ async function submit(
 }
 
 describe("POST /api/submissions", () => {
-  it("bez zalogowania zwraca 401 i nic nie kolejkuje", async () => {
+  it("returns 401 with no session and queues nothing", async () => {
     const response = await submit({
       problemSlug: "submit-test",
       language: "python",
@@ -88,7 +88,7 @@ describe("POST /api/submissions", () => {
     expect(queue.jobs).toHaveLength(0);
   });
 
-  it("przyjmuje submit z 202 i wrzuca go do kolejki", async () => {
+  it("accepts a submission with 202 and enqueues it", async () => {
     const response = await submit(
       {
         problemSlug: "submit-test",
@@ -106,7 +106,7 @@ describe("POST /api/submissions", () => {
     ]);
   });
 
-  it("zapisuje submit jako QUEUED bez werdyktu", async () => {
+  it("stores the submission as QUEUED with no verdict", async () => {
     const created = await submit(
       { problemSlug: "submit-test", language: "cpp", source: "int main(){}" },
       { cookie },
@@ -126,7 +126,7 @@ describe("POST /api/submissions", () => {
     });
   });
 
-  it("odrzuca nieistniejące zadanie i nic nie kolejkuje", async () => {
+  it("rejects a missing problem and queues nothing", async () => {
     const response = await submit(
       { problemSlug: "nie-ma-takiego", language: "python", source: "print(1)" },
       { cookie },
@@ -136,7 +136,7 @@ describe("POST /api/submissions", () => {
     expect(queue.jobs).toHaveLength(0);
   });
 
-  it("odrzuca nieznany język", async () => {
+  it("rejects an unknown language", async () => {
     const response = await submit(
       { problemSlug: "submit-test", language: "brainfuck", source: "+" },
       { cookie },
@@ -145,7 +145,7 @@ describe("POST /api/submissions", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("odrzuca pusty kod", async () => {
+  it("rejects empty source", async () => {
     const response = await submit(
       { problemSlug: "submit-test", language: "python", source: "" },
       { cookie },
@@ -156,7 +156,7 @@ describe("POST /api/submissions", () => {
 });
 
 describe("GET /api/submissions", () => {
-  it("bez zalogowania zwraca 401", async () => {
+  it("returns 401 without a session", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/submissions",
@@ -165,7 +165,7 @@ describe("GET /api/submissions", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it("zwraca historię od najnowszych", async () => {
+  it("returns history newest first", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/submissions",
@@ -182,7 +182,7 @@ describe("GET /api/submissions", () => {
 });
 
 describe("GET /api/submissions/:id", () => {
-  it("nie pokazuje cudzych submitów", async () => {
+  it("never shows another user's submissions", async () => {
     const created = await submit(
       { problemSlug: "submit-test", language: "python", source: "print(3)" },
       { cookie },
@@ -192,15 +192,15 @@ describe("GET /api/submissions/:id", () => {
       method: "POST",
       url: "/api/auth/register",
       payload: {
-        email: "obcy@example.com",
-        password: "inne-tajne-haslo",
+        email: "stranger@example.com",
+        password: "other-test-password",
         displayName: "Obcy",
       },
     });
     const intruder = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: "obcy@example.com", password: "inne-tajne-haslo" },
+      payload: { email: "stranger@example.com", password: "other-test-password" },
     });
     const intruderSession = intruder.cookies.find(
       (item) => item.name === "sfera_session",
@@ -212,12 +212,12 @@ describe("GET /api/submissions/:id", () => {
       headers: { cookie: `sfera_session=${intruderSession.value}` },
     });
 
-    // To samo 404 co dla nieistniejącego — endpoint nie może być wyrocznią
-    // istnienia identyfikatorów.
+    // The same 404 as for a missing one — the endpoint must not be an oracle
+    // for which ids exist.
     expect(response.statusCode).toBe(404);
   });
 
-  it("nie ujawnia stderr ani wyjścia kompilatora z poszczególnych testów", async () => {
+  it("never discloses stderr or compiler output from individual tests", async () => {
     const created = await submit(
       { problemSlug: "submit-test", language: "python", source: "print(3)" },
       { cookie },
@@ -229,7 +229,7 @@ describe("GET /api/submissions/:id", () => {
       headers: { cookie },
     });
 
-    // Na ukrytych testach stderr potrafi zdradzić dane wejściowe.
+    // On hidden tests, stderr can leak the input data.
     expect(response.payload).not.toContain("stderr");
     expect(response.payload).not.toContain("compileOutput");
   });

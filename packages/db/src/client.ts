@@ -6,7 +6,7 @@ export type Database = NodePgDatabase<typeof schema>;
 
 export interface CreateDatabaseOptions {
   connectionString: string;
-  /** Domyślnie 10 — przy jednym hoście i kilku procesach to sensowny sufit. */
+  /** Defaults to 10 — a sensible ceiling for one host and a few processes. */
   maxConnections?: number;
 }
 
@@ -17,8 +17,8 @@ export interface DatabaseHandle {
 }
 
 /**
- * Tworzy pulę połączeń i klienta Drizzle. Świadomie nie ma tu globalnego
- * singletona — każdy proces (api, worker, testy) zakłada własne połączenie
+ * Creates a connection pool and a Drizzle client. There is deliberately no
+ * global singleton — every process (api, worker, tests) opens its own connection
  * i sam je zamyka.
  */
 export function createDatabase(

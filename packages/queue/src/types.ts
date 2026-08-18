@@ -1,13 +1,13 @@
 import type { Verdict } from "@sfera/shared";
 
-/** Zadanie w kolejce niesie samo id — reszta i tak jest w bazie. */
+/** A queued job carries only the id — the rest is in the database anyway. */
 export interface JudgeJob {
   submissionId: string;
 }
 
 /**
- * Priorytety BullMQ: niższa liczba = wcześniej. Submit konkursowy nie może
- * czekać za kolejką ćwiczeniową w ostatnich minutach zawodów.
+ * BullMQ priorities: a lower number runs sooner. A contest submission cannot
+ * queue behind practice runs in the closing minutes of a contest.
  */
 export const JUDGE_PRIORITY = {
   contest: 1,
@@ -34,15 +34,15 @@ export type JudgeProgressEvent =
   | { type: "failed"; submissionId: string; message: string };
 
 /**
- * Producent zadań. API zna tylko ten interfejs — wymiana BullMQ na RabbitMQ
- * w Fazie 5 nie dotknie warstwy domeny.
+ * The job producer. The API knows only this interface — swapping BullMQ for
+ * RabbitMQ in Phase 5 will not touch the domain layer.
  */
 export interface JudgeQueue {
   enqueue: (job: JudgeJob, priority?: JudgePriority) => Promise<void>;
   close: () => Promise<void>;
 }
 
-/** Kanał postępu. Worker publikuje, API subskrybuje i przekazuje do SSE. */
+/** The progress channel. The worker publishes, the API subscribes and forwards to SSE. */
 export interface JudgeProgressBus {
   publish: (event: JudgeProgressEvent) => Promise<void>;
   subscribe: (

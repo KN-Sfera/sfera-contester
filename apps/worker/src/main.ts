@@ -21,13 +21,13 @@ async function main(): Promise<void> {
   const judge0 = createJudge0Client({ baseUrl: config.JUDGE0_URL });
 
   await judge0.waitUntilReady().catch((error: unknown) => {
-    console.warn("Judge0 jeszcze nie wstał, próbuję dalej:", error);
+    console.warn("Judge0 is not up yet, retrying:", error);
   });
 
   const worker = createJudgeWorker({
     connection,
     concurrency: config.JUDGE_CONCURRENCY,
-    onError: (error) => console.error("Błąd workera:", error),
+    onError: (error) => console.error("Worker error:", error),
     process: async (job) => {
       try {
         await judgeSubmission(
@@ -35,8 +35,8 @@ async function main(): Promise<void> {
           job.submissionId,
         );
       } catch (error) {
-        // Brak submitu w bazie nie naprawi się przez ponowienie — kasujemy
-        // zadanie od razu, zamiast trzy razy walić w to samo.
+        // A missing submission will not fix itself on a retry — we drop the
+        // job at once instead of hammering the same thing three times.
         if (error instanceof SubmissionNotFoundError) {
           throw new UnrecoverableError(error.message);
         }
@@ -49,9 +49,9 @@ async function main(): Promise<void> {
     if (!job) return;
     const submissionId = job.data.submissionId;
 
-    // Submit oznaczamy jako FAILED dopiero, gdy skończą się ponowienia —
-    // wcześniejsze próby to przejściowa niedostępność Judge0, nie porażka
-    // rozwiązania.
+    // A submission is marked FAILED only once the retries run out — earlier
+    // attempts mean Judge0 was briefly unavailable, not that the solution
+    // failed.
     const retryable = !(error instanceof UnrecoverableError);
     const attemptsExhausted = job.attemptsMade >= (job.opts.attempts ?? 1);
     if (retryable && !attemptsExhausted) return;
@@ -65,17 +65,17 @@ async function main(): Promise<void> {
         }),
       )
       .catch((cause: unknown) =>
-        console.error("Nie udało się zapisać porażki submitu:", cause),
+        console.error("Could not record the submission failure:", cause),
       );
   });
 
   console.log(
-    `Worker gotowy — concurrency ${config.JUDGE_CONCURRENCY}, Judge0 ${config.JUDGE0_URL}`,
+    `Worker ready — concurrency ${config.JUDGE_CONCURRENCY}, Judge0 ${config.JUDGE0_URL}`,
   );
 
   const shutdown = async (signal: string) => {
     console.log(`${signal} — zamykam workera`);
-    // close() czeka na dokończenie zadań w locie, żeby nie zostawić submitów
+    // close() waits for in-flight jobs to finish, so as not to leave submissions
     // w stanie RUNNING.
     await worker.close();
     await progress.close();

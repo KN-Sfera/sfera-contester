@@ -9,8 +9,7 @@ import {
   type RunResult,
   type Verdict,
 } from "@sfera/shared";
-
-const JUDGE0_URL = process.env.JUDGE0_URL ?? "http://127.0.0.1:2358";
+import { config } from "./config.js";
 
 interface Judge0Status {
   id: number;
@@ -26,6 +25,20 @@ interface Judge0Submission {
   memory: number | null;
   exit_code: number | null;
   status: Judge0Status;
+}
+
+export interface ExecuteInput {
+  language: LanguageId;
+  source: string;
+  stdin?: string;
+  expectedStdout?: string;
+  cpuTimeLimit?: number;
+  memoryLimit?: number;
+}
+
+export interface Judge0Client {
+  execute: (input: ExecuteInput) => Promise<RunResult>;
+  waitUntilReady: (timeoutMs?: number) => Promise<void>;
 }
 
 function mapJudge0Status(status: Judge0Status): Verdict {
@@ -46,7 +59,6 @@ function mapJudge0Status(status: Judge0Status): Verdict {
     case 12:
       return "RE";
     case 13:
-      return "SE";
     case 14:
       return "SE";
     default:
@@ -65,94 +77,100 @@ function mapVerdict(status: Judge0Status): Verdict {
   return mapJudge0Status(status);
 }
 
-export async function waitForJudge0(timeoutMs = 120_000): Promise<void> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    try {
-      const response = await fetch(`${JUDGE0_URL}/about`);
-      if (response.ok) return;
-    } catch {
-      // still booting
+/**
+ * The client for the playground and for admin problem validation. Judging
+ * submissions goes through the worker, which has its own instance.
+ */
+export function createAppJudge0(): Judge0Client {
+  const baseUrl = config.JUDGE0_URL.replace(/\/$/, "");
+
+  async function waitUntilReady(timeoutMs = 120_000): Promise<void> {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      try {
+        const response = await fetch(`${baseUrl}/about`);
+        if (response.ok) return;
+      } catch {
+        // still booting
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-  throw new Error(`Judge0 at ${JUDGE0_URL} did not become ready in time`);
-}
-
-export async function executeCode(input: {
-  language: LanguageId;
-  source: string;
-  stdin?: string;
-  expectedStdout?: string;
-  cpuTimeLimit?: number;
-  memoryLimit?: number;
-}): Promise<RunResult> {
-  const language = getLanguage(input.language);
-  if (!language) {
-    throw new Error(`Unsupported language: ${input.language}`);
+    throw new Error(`Judge0 at ${baseUrl} did not become ready in time`);
   }
 
-  if (Buffer.byteLength(input.source, "utf8") > MAX_SOURCE_BYTES) {
-    throw new Error(`Source exceeds ${MAX_SOURCE_BYTES} bytes`);
+  async function execute(input: ExecuteInput): Promise<RunResult> {
+    const language = getLanguage(input.language);
+    if (!language) {
+      throw new Error(`Unsupported language: ${input.language}`);
+    }
+
+    if (Buffer.byteLength(input.source, "utf8") > MAX_SOURCE_BYTES) {
+      throw new Error(`Source exceeds ${MAX_SOURCE_BYTES} bytes`);
+    }
+    if (
+      input.stdin &&
+      Buffer.byteLength(input.stdin, "utf8") > MAX_STDIN_BYTES
+    ) {
+      throw new Error(`stdin exceeds ${MAX_STDIN_BYTES} bytes`);
+    }
+    if (
+      input.expectedStdout &&
+      Buffer.byteLength(input.expectedStdout, "utf8") > MAX_EXPECTED_BYTES
+    ) {
+      throw new Error(`expectedStdout exceeds ${MAX_EXPECTED_BYTES} bytes`);
+    }
+
+    const body = {
+      source_code: input.source,
+      language_id: language.judge0Id,
+      stdin: input.stdin ?? "",
+      cpu_time_limit: input.cpuTimeLimit ?? 2,
+      memory_limit: input.memoryLimit ?? 128000,
+      wall_time_limit: (input.cpuTimeLimit ?? 2) * 2 + 1,
+    };
+
+    const response = await fetch(
+      `${baseUrl}/submissions?base64_encoded=false&wait=true`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Cannot reach Judge0 at ${baseUrl} (${reason}). Is docker compose up?`,
+      );
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Judge0 error ${response.status}: ${text}`);
+    }
+
+    const submission = (await response.json()) as Judge0Submission;
+    let verdict = mapVerdict(submission.status);
+
+    if (verdict === "OK" && input.expectedStdout !== undefined) {
+      verdict = compareOutputs(submission.stdout ?? "", input.expectedStdout)
+        ? "AC"
+        : "WA";
+    }
+
+    return {
+      verdict,
+      status: submission.status.description,
+      stdout: submission.stdout ?? "",
+      stderr: submission.stderr ?? "",
+      compileOutput: submission.compile_output ?? "",
+      time: submission.time,
+      memory: submission.memory,
+      exitCode: submission.exit_code,
+      message: submission.message,
+    };
   }
-  if (input.stdin && Buffer.byteLength(input.stdin, "utf8") > MAX_STDIN_BYTES) {
-    throw new Error(`stdin exceeds ${MAX_STDIN_BYTES} bytes`);
-  }
-  if (
-    input.expectedStdout &&
-    Buffer.byteLength(input.expectedStdout, "utf8") > MAX_EXPECTED_BYTES
-  ) {
-    throw new Error(`expectedStdout exceeds ${MAX_EXPECTED_BYTES} bytes`);
-  }
 
-  const body = {
-    source_code: input.source,
-    language_id: language.judge0Id,
-    stdin: input.stdin ?? "",
-    cpu_time_limit: input.cpuTimeLimit ?? 2,
-    memory_limit: input.memoryLimit ?? 128000,
-    wall_time_limit: (input.cpuTimeLimit ?? 2) * 2 + 1,
-  };
-
-  const response = await fetch(
-    `${JUDGE0_URL}/submissions?base64_encoded=false&wait=true`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  ).catch((error: unknown) => {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Cannot reach Judge0 at ${JUDGE0_URL} (${reason}). Is docker compose up?`,
-    );
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Judge0 error ${response.status}: ${text}`);
-  }
-
-  const submission = (await response.json()) as Judge0Submission;
-  let verdict = mapVerdict(submission.status);
-
-  if (verdict === "OK" && input.expectedStdout !== undefined) {
-    verdict = compareOutputs(submission.stdout ?? "", input.expectedStdout)
-      ? "ACC"
-      : "WA";
-  }
-
-  return {
-    verdict,
-    status: submission.status.description,
-    stdout: submission.stdout ?? "",
-    stderr: submission.stderr ?? "",
-    compileOutput: submission.compile_output ?? "",
-    time: submission.time,
-    memory: submission.memory,
-    exitCode: submission.exit_code,
-    message: submission.message,
-  };
+  return { execute, waitUntilReady };
 }
 
 export function listLanguages() {

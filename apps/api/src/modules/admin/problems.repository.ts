@@ -18,7 +18,7 @@ export interface AdminProblemSummary {
   updatedAt: Date;
 }
 
-/** Widok admina — pokazuje też szkice, w przeciwieństwie do listy publicznej. */
+/** The admin view — drafts included, unlike the public list. */
 export async function listAllProblems(
   db: Database,
 ): Promise<AdminProblemSummary[]> {
@@ -52,7 +52,7 @@ export interface AdminProblemDetail extends ProblemRow {
   }[];
 }
 
-/** Admin widzi pełną treść testów — to jedyne miejsce, gdzie ukryte wychodzą na zewnątrz. */
+/** Admins see full test contents — the only place hidden tests leave the server. */
 export async function findProblemForAdmin(
   db: Database,
   slug: string,
@@ -151,11 +151,11 @@ export interface TestCaseInput {
 }
 
 /**
- * Podmienia komplet testów zadania. Numeracja idzie od 1 wg kolejności w tablicy.
+ * Replaces a problem's whole test set. Numbering runs from 1 in array order.
  *
- * Aktualizuje po `ordinal` zamiast kasować i wstawiać od nowa — inaczej
- * `submission_results.test_case_id` traciłby powiązanie przy każdej edycji
- * i historia submitów przestawałaby wskazywać, który test poległ.
+ * It updates by `ordinal` rather than deleting and reinserting — otherwise
+ * `submission_results.test_case_id` would lose its link on every edit and the
+ * submission history would stop showing which test failed.
  */
 export async function replaceTestCases(
   db: Database,

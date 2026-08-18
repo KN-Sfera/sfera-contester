@@ -18,9 +18,9 @@ export const problems = pgTable("problems", {
   statement: text("statement").notNull(),
   /** Limit czasu CPU w sekundach — jednostka Judge0. */
   timeLimit: doublePrecision("time_limit").notNull().default(2),
-  /** Limit pamięci w kilobajtach — jednostka Judge0. */
+  /** Memory limit in kilobytes — Judge0's unit. */
   memoryLimit: integer("memory_limit").notNull().default(128000),
-  /** Niepubliczne zadania widzi tylko admin. Zadania konkursowe czekają tu przed startem. */
+  /** Non-public problems are admin-only. Contest problems wait here before the start. */
   isPublic: boolean("is_public").notNull().default(false),
   createdBy: uuid("created_by").references(() => users.id, {
     onDelete: "set null",
@@ -40,16 +40,16 @@ export const testCases = pgTable(
     problemId: uuid("problem_id")
       .notNull()
       .references(() => problems.id, { onDelete: "cascade" }),
-    /** Kolejność oceniania, liczona od 1. To ją pokazujemy zawodnikowi ("Test 3/20"). */
+    /** Judging order, counted from 1. This is what contestants see ("Test 3/20"). */
     ordinal: integer("ordinal").notNull(),
     input: text("input").notNull(),
     expectedOutput: text("expected_output").notNull(),
     isSample: boolean("is_sample").notNull().default(false),
-    /** Nieużywane w ICPC (0/1 za zadanie). Zostaje pod ewentualny scoring punktowy. */
+    /** Unused under ICPC rules (0/1 per problem). Kept for a possible points-based scoring. */
     points: integer("points").notNull().default(0),
   },
-  // Osobny indeks po samym problem_id byłby zbędny — Postgres użyje prefiksu
-  // tego unikalnego indeksu do wyszukania testów zadania.
+  // A separate index on problem_id alone would be redundant — Postgres will use
+  // the prefix of this unique index to find a problem's tests.
   (table) => [
     uniqueIndex("test_cases_problem_ordinal_uq").on(
       table.problemId,

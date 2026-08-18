@@ -5,8 +5,8 @@ export interface FakeJudgeQueue extends JudgeQueue {
 }
 
 /**
- * Atrapa kolejki dla testów HTTP — sprawdzamy, że API wrzuca zadanie, bez
- * stawiania Redisa. Prawdziwy przepływ przez BullMQ pokrywają testy workera.
+ * A queue fake for the HTTP tests — we check that the API enqueues a job
+ * without standing up Redis. The real BullMQ flow is covered by the worker tests.
  */
 export function createFakeJudgeQueue(): FakeJudgeQueue {
   const jobs: { job: JudgeJob; priority: JudgePriority }[] = [];

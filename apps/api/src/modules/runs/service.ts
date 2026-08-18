@@ -39,8 +39,8 @@ export interface RunSamplesInput {
 }
 
 /**
- * Przerywa na pierwszym niezaliczonym teście — tak samo zachowa się worker
- * oceniający submity w Fazie 1.4 (reguła ICPC: liczy się pierwszy błąd).
+ * Stops at the first failing test — the same behaviour as the submission
+ * worker in Phase 1.4 (ICPC rule: the first failure is what counts).
  */
 export async function runSamples(
   db: Database,

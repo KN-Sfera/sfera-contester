@@ -1,12 +1,12 @@
 import type { JudgeProgressBus, JudgeProgressEvent } from "@sfera/queue";
 
 export interface FakeProgressBus extends JudgeProgressBus {
-  /** Ile aktywnych subskrypcji — pilnuje, że strumienie po sobie sprzątają. */
+  /** Active subscription count — proves the streams clean up after themselves. */
   subscriberCount: () => number;
 }
 
 /**
- * Szyna postępu w pamięci. Pozwala sterować zdarzeniami z testu, bez Redisa.
+ * An in-memory progress bus. It lets a test drive the events without Redis.
  */
 export function createFakeProgressBus(): FakeProgressBus {
   const listeners = new Map<string, Set<(event: JudgeProgressEvent) => void>>();

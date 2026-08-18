@@ -52,7 +52,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post("/api/auth/login", {
     config: {
-      // Ostrzej niż globalne 30/min — to jest cel ataku słownikowego.
+      // Tighter than the global 30/min — this is a dictionary-attack target.
       rateLimit: { max: 10, timeWindow: "15 minutes" },
     },
     handler: async (request, reply) => {
@@ -67,8 +67,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         return toPublicUser(user);
       } catch (error) {
         if (error instanceof InvalidCredentialsError) {
-          // Ten sam komunikat dla złego hasła i nieistniejącego konta —
-          // inaczej endpoint działa jak wyrocznia istnienia adresów.
+          // The same message for a wrong password and a missing account —
+          // otherwise the endpoint becomes an oracle for which emails exist.
           return reply.code(401).send({ error: error.message });
         }
         throw error;

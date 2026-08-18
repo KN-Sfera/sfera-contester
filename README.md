@@ -1,204 +1,213 @@
 # Sfera Contester
 
+A self-hosted contester for algorithmic contests: accounts, durable submission history,
+asynchronous judging through a queue, an admin panel for authoring problems and tests, problem
+sets, and a contest module with ICPC rules and a live leaderboard. Code runs inside **Judge0 CE**
+(Isolate in Docker).
 
-Self-hosted contester algorytmiczny: konta, trwała historia submitów, asynchroniczne ocenianie
-przez kolejkę, panel admina do definiowania zadań i testów, zestawy zadań oraz moduł konkursowy
-z regułami ICPC i leaderboardem na żywo. Kod wykonuje się w **Judge0 CE** (Isolate w Dockerze).
 
-Plan rozwoju: [docs/ROADMAP.md](docs/ROADMAP.md). Frontend czeka na przebudowę (Faza 3) —
-backend jest kompletny.
+Roadmap: [docs/ROADMAP.md](docs/ROADMAP.md). Frontend rebuild plan:
+[docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md).
 
 ## Stack
 
 - **api** — Fastify + TypeScript (`apps/api`)
-- **worker** — proces oceniający submity z kolejki (`apps/worker`)
-- **web** — Next.js + Monaco (`apps/web`) — do przebudowy
-- **judge0** — self-hosted CE 1.13.1 (nie publikowany na zewnątrz)
-- **PostgreSQL** — baza aplikacyjna, osobna od wewnętrznej bazy Judge0
-- **Redis + BullMQ** — kolejka oceniania i szyna postępu
+- **worker** — the process that judges submissions off the queue (`apps/worker`)
+- **web** — Next.js App Router, Monaco / CodeMirror (`apps/web`)
+- **judge0** — self-hosted CE 1.13.1 (never exposed outside the compose network)
+- **PostgreSQL** — the application database, separate from Judge0's internal one
+- **Redis + BullMQ** — the judging queue and the progress bus
 
-## Szybki start (Docker)
+## Quick start (Docker)
 
-Wymagania: uruchomiony **Docker Desktop** (lub inny daemon) z możliwością kontenerów `privileged` (Judge0 / Isolate).
-Na Apple Silicon obrazy Judge0 startują jako `linux/amd64`.
+Requirements: a running **Docker Desktop** (or another daemon) able to run `privileged`
+containers (Judge0 / Isolate). On Apple Silicon the Judge0 images start as `linux/amd64`.
 
 ```bash
-# 1. Uruchom Docker Desktop
-# 2. Przygotuj sekrety:
-cp .env.example .env && openssl rand -base64 48   # wklej wynik jako JWT_SECRET
-# 3. Z katalogu projektu:
+# 1. Start Docker Desktop
+# 2. Prepare the secrets:
+cp .env.example .env && openssl rand -base64 48   # paste the result as JWT_SECRET
+# 3. From the project directory:
 docker compose up --build
 ```
 
-Potem:
+Then:
 
 - UI: http://localhost:3000
 - API: http://localhost:3001/health
 
-Smoke test samego Judge0 (gdy stack Judge0 już stoi):
+A smoke test of Judge0 alone (once the Judge0 stack is up):
 
 ```bash
 npm run smoke:judge0
 ```
 
-Judge0 API jest wystawione tylko na `127.0.0.1:2358` (localhost) — nie na LAN. W sieci compose `api` łączy się przez `http://judge0-server:2358`.
+The Judge0 API is exposed only on `127.0.0.1:2358` (localhost), never on the LAN. Inside the
+compose network `api` reaches it at `http://judge0-server:2358`.
 
-Pierwszy start Judge0 (migracje DB) może zająć 1–2 minuty. Jeśli `/api/run` zwróci błąd połączenia, poczekaj i spróbuj ponownie.
+Judge0's first start (database migrations) can take a minute or two. If `/api/run` returns a
+connection error, wait and try again.
 
-## Dev lokalny (API + web poza Dockerem)
+## Local development (API and web outside Docker)
 
-1. Odpal Judge0, bazę i Redisa:
+1. Start Judge0, the database and Redis:
 
 ```bash
 docker compose up -d judge0-server judge0-worker judge0-db judge0-redis app-db app-redis
 npm run smoke:judge0
 ```
 
-2. Zainstaluj zależności i uruchom API, workera i web (każde w osobnym terminalu):
+2. Install the dependencies and run the API, the worker and the web app (each in its own
+   terminal):
 
 ```bash
 npm install
 DATABASE_URL=postgres://sfera:sfera@127.0.0.1:5433/sfera REDIS_URL=redis://127.0.0.1:6379 JWT_SECRET=$(openssl rand -base64 48) COOKIE_SECURE=false JUDGE0_URL=http://127.0.0.1:2358 PROBLEMS_DIR=./data/problems npm run dev:api
 DATABASE_URL=postgres://sfera:sfera@127.0.0.1:5433/sfera REDIS_URL=redis://127.0.0.1:6379 JUDGE0_URL=http://127.0.0.1:2358 npm run dev:worker
-NEXT_PUBLIC_API_URL=http://127.0.0.1:3001 npm run dev:web
+npm run dev:web
 ```
 
-API odpala migracje przy starcie, więc nie trzeba ich uruchamiać ręcznie. Baza startuje pusta —
-zadania wgrywa się seedem:
+The API runs its migrations on start, so there is no need to apply them by hand. The database
+starts empty — problems are loaded with the seed:
 
 ```bash
 DATABASE_URL=postgres://sfera:sfera@127.0.0.1:5433/sfera npm run seed:problems
 ```
 
-## Baza danych
+Without an explicit `NEXT_PUBLIC_API_URL` the frontend talks to the API on the host the page came
+from, port 3001. That matters: the session cookie is `SameSite=Lax`, and `localhost` and
+`127.0.0.1` are different sites to a browser, so a hard-coded host would mean the cookie is never
+sent.
 
-Aplikacja ma **własnego** Postgresa (`app-db`, port `127.0.0.1:5433`), osobnego od tego,
-którego Judge0 używa wewnętrznie. Schemat w Drizzle: `packages/db/src/schema/`.
+## Database
+
+The application has its **own** Postgres (`app-db`, port `127.0.0.1:5433`), separate from the one
+Judge0 uses internally. The Drizzle schema lives in `packages/db/src/schema/`.
 
 ```bash
-npm run db:generate   # po zmianie schematu — generuje SQL do packages/db/drizzle/
-npm run db:migrate    # ręczne zastosowanie migracji (API robi to samo przy starcie)
+npm run db:generate   # after a schema change — generates SQL into packages/db/drizzle/
+npm run db:migrate    # applying migrations by hand (the API does the same on start)
 ```
 
-Wygenerowanego SQL-a nie edytuje się ręcznie — zmienia się schemat i generuje na nowo.
+The generated SQL is never edited by hand — change the schema and regenerate.
 
-## Konta
+## Accounts
 
-Rejestracja email + hasło, argon2id, sesja w httpOnly cookie (`sfera_session`). Role:
-`USER` / `ADMIN`.
+Email and password registration, argon2id, a session in an httpOnly cookie (`sfera_session`).
+Roles: `USER` / `ADMIN`.
 
-- `POST /api/auth/register` — `{ email, password, displayName }`, hasło min. 10 znaków
+- `POST /api/auth/register` — `{ email, password, displayName }`, password at least 10 characters
 - `POST /api/auth/login` — `{ email, password }`
-- `POST /api/auth/logout` — czyści ciasteczko na tym urządzeniu
-- `POST /api/auth/logout-all` — unieważnia **wszystkie** sesje użytkownika
-- `GET /api/auth/me` — profil zalogowanego
+- `POST /api/auth/logout` — clears the cookie on this device
+- `POST /api/auth/logout-all` — voids **every** session the user has
+- `GET /api/auth/me` — the signed-in profile
 
-`REGISTRATION_MODE` steruje tym, kto może założyć konto: `open`, `invite` (tylko admin —
-tryb na konkurs), `closed`. Pierwszy admin:
+`REGISTRATION_MODE` decides who may create an account: `open`, `invite` (admin only — contest
+mode), `closed`. The first admin:
 
 ```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=twoje-dlugie-haslo npm run seed:admin
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=your-long-password npm run seed:admin
 ```
 
-Sesje unieważnia licznik `users.token_version` — podbicie go zabija wszystkie wydane tokeny
-bez trzymania ich listy po stronie serwera.
+Sessions are voided by the `users.token_version` counter — bumping it kills every issued token
+without keeping a list of them on the server.
 
-## Submity
+## Submissions
 
-Ocenianie jest **asynchroniczne**: API zapisuje submit, wrzuca go do kolejki BullMQ i
-natychmiast odpowiada `202`. Ocenia osobny proces (`apps/worker`), przerywając na pierwszym
-niezaliczonym teście.
+Judging is **asynchronous**: the API stores the submission, pushes it onto the BullMQ queue and
+answers `202` immediately. A separate process (`apps/worker`) judges it, stopping at the first
+failing test.
 
 - `POST /api/submissions` — `{ problemSlug, language, source }` → `202 { submissionId }`
-- `GET /api/submissions` — historia własnych submitów
-- `GET /api/submissions/:id` — szczegóły z wynikami per test
-- `GET /api/submissions/:id/events` — strumień SSE z postępem oceniania
+- `GET /api/submissions` — your own submission history
+- `GET /api/submissions/:id` — details with per-test results
+- `GET /api/submissions/:id/events` — an SSE stream of judging progress
 
-Strumień wysyła `started`, `test` (numer + werdykt), a na koniec `done` albo `failed` i się
-zamyka. Submit oceniony przed podłączeniem klienta dostaje werdykt od razu z bazy — inaczej
-przeglądarka wisiałaby, czekając na zdarzenie, które już nie przyjdzie.
+The stream emits `started`, `test` (number and verdict), and finally `done` or `failed` before
+closing. A submission judged before the client connects gets its verdict straight from the
+database — otherwise the browser would hang waiting for an event that will never come.
 
-Wszystkie wymagają zalogowania. Cudzy submit daje `404`, nie `403` — endpoint nie może być
-wyrocznią istnienia identyfikatorów. Wyniki per test zawierają numer, werdykt, czas i pamięć,
-ale **nie** `stderr` ani wyjścia kompilatora, bo na ukrytych testach potrafią zdradzić dane
-wejściowe.
+All of these require a session. Someone else's submission returns `404`, not `403` — the endpoint
+must not be an oracle for which ids exist. Per-test results carry the number, verdict, time and
+memory, but **not** `stderr` or compiler output, because on hidden tests those can leak the input.
 
-`JUDGE_CONCURRENCY` ustawia, ile submitów worker ocenia równolegle. Sufit wyznacza liczba
-workerów Judge0 — wyżej tylko zapycha sandbox.
+`JUDGE_CONCURRENCY` sets how many submissions the worker judges in parallel. The ceiling is the
+number of Judge0 workers — going higher only floods the sandbox.
 
-## Panel admina
+## Admin panel
 
-Wszystko pod `/api/admin/*`, wymaga roli `ADMIN`.
+Everything under `/api/admin/*`, requiring the `ADMIN` role.
 
-- `GET/POST /api/admin/problems`, `PATCH/DELETE /api/admin/problems/:slug` — CRUD zadań
-- `PUT /api/admin/problems/:slug/test-cases` — podmiana kompletu testów
-- `POST /api/admin/problems/:slug/validate` — przepuszcza wzorcówkę przez wszystkie testy
-- `POST /api/admin/problems/:slug/publish` — publikuje, ale **tylko gdy wzorcówka przechodzi**
+- `GET/POST /api/admin/problems`, `PATCH/DELETE /api/admin/problems/:slug` — problem CRUD
+- `PUT /api/admin/problems/:slug/test-cases` — replaces the whole test set
+- `POST /api/admin/problems/:slug/validate` — runs the reference solution through every test
+- `POST /api/admin/problems/:slug/publish` — publishes, but **only if the reference passes**
 - `POST /api/admin/problems/:slug/unpublish`
 
-**Nowe zadanie zawsze startuje jako szkic.** Publikacja wymaga podania wzorcowego rozwiązania,
-które musi przejść komplet testów — to wyłapuje najczęstszy błąd przy zakładaniu zadania, czyli
-złe `expected_output`. Walidacja dzieje się w momencie publikacji, a nie jest zapamiętywana jako
-flaga: zapamiętana zdezaktualizowałaby się po pierwszej edycji testów.
+**A new problem always starts as a draft.** Publishing requires a reference solution that passes
+the full test set — this catches the most common authoring mistake, a wrong `expected_output`.
+Validation happens at publish time rather than being stored as a flag: a stored flag would go
+stale after the first test edit.
 
-W przeciwieństwie do oceniania submitów walidacja **nie przerywa na pierwszym błędzie** — admin
-chce zobaczyć komplet problemów naraz. Dla testów, które padły, odpowiedź zawiera oczekiwane
-i faktyczne wyjście.
+Unlike submission judging, validation **does not stop at the first failure** — an admin wants to
+see every problem at once. For failing tests the response includes the expected and the actual
+output.
 
-## Zestawy zadań
+## Problem sets
 
-Kolekcje zadań: ścieżki nauki, archiwa konkursów, zestawy ćwiczeń. Zadanie może należeć do wielu
-zestawów, w jednym tylko raz.
+Collections of problems: learning paths, contest archives, practice sets. A problem can belong to
+many sets, but only once within a set.
 
-- `GET /api/problem-sets` — publiczne zestawy; dla zalogowanych z postępem (`solvedCount`)
-- `GET /api/problem-sets/:slug` — zawartość w kolejności, z oznaczeniem zaliczonych
+- `GET /api/problem-sets` — public sets; with progress (`solvedCount`) when signed in
+- `GET /api/problem-sets/:slug` — contents in order, with solved problems marked
 - `GET/POST /api/admin/problem-sets`, `PATCH/DELETE /api/admin/problem-sets/:slug`
-- `PUT /api/admin/problem-sets/:slug/items` — zawartość i kolejność wg listy slugów
+- `PUT /api/admin/problem-sets/:slug/items` — contents and order, from a list of slugs
 
-Zadania nieopublikowane są pomijane w widoku publicznym i nie podbijają mianownika postępu.
+Unpublished problems are skipped in the public view and do not inflate the progress denominator.
 
-## Konkursy ICPC
+## ICPC contests
 
-Reguły są parametrami konkursu, nie stałymi w kodzie: `penaltyMinutes` (domyślnie 20),
-`freezeMinutes` (60), `compileErrorCountsAsAttempt` (false — jak na ICPC World Finals).
+The rules are contest parameters rather than constants in code: `penaltyMinutes` (20 by default),
+`freezeMinutes` (60), `compileErrorCountsAsAttempt` (false — as at the ICPC World Finals).
 
-**Scoring żyje w [`packages/shared/src/scoring/icpc.ts`](packages/shared/src/scoring/icpc.ts)
-jako czysta funkcja bez I/O** i jest pokryty 26 testami jednostkowymi. To najbardziej podatny
-na błędy fragment systemu, więc musi dać się sprawdzić bez bazy i bez sandboxa.
+**The scoring lives in [`packages/shared/src/scoring/icpc.ts`](packages/shared/src/scoring/icpc.ts)
+as a pure function with no I/O** and is covered by 26 unit tests. It is the most error-prone piece
+of the system, so it has to be checkable without a database and without a sandbox.
 
-Ranking: więcej rozwiązanych wyżej → niższa suma kar → wcześniejsze ostatnie zaliczenie.
-Czas zadania to minuty od startu do AC plus kara za każdy błędny submit **przed** nim. Próby po
-zaliczeniu i próby do zadań nierozwiązanych nie kosztują nic. Nierozstrzygnięty remis daje tę
-samą pozycję.
+Ranking: more problems solved ranks higher → lower total penalty → earlier last solve. A problem's
+time is the minutes from the start to the accepted submission plus a penalty for each failed
+attempt **before** it. Attempts after solving, and attempts at unsolved problems, cost nothing. A
+tie left unresolved gives a shared position.
 
-**Faza konkursu nie jest trzymana w bazie** — wynika z `starts_at` i `duration_minutes`.
-Kolumna ze statusem wymagałaby zadania cyklicznego i potrafiłaby się rozjechać z zegarem.
-Czas zawsze liczy serwer; przeglądarka tylko wyświetla.
+**The contest phase is not stored in the database** — it follows from `starts_at` and
+`duration_minutes`. A status column would need a scheduled job and could drift out of step with
+the clock. Time is always kept by the server; the browser only displays it.
 
-Endpointy zawodnika:
+Contestant endpoints:
 
-- `GET /api/contests`, `GET /api/contests/:slug` — przegląd z zegarem i fazą
+- `GET /api/contests`, `GET /api/contests/:slug` — overview with the clock and the phase
 - `POST /api/contests/:slug/register`
-- `POST /api/contests/:slug/submissions` — `{ letter, language, source }`, priorytet wyższy
-  niż submity ćwiczeniowe
-- `GET /api/contests/:slug/leaderboard` i `.../leaderboard/events` (SSE, live)
+- `POST /api/contests/:slug/submissions` — `{ letter, language, source }`, at a higher priority
+  than practice submissions
+- `GET /api/contests/:slug/leaderboard` and `.../leaderboard/events` (SSE, live)
 - `GET/POST /api/contests/:slug/clarifications`
 
-Administracja: CRUD konkursów, `PUT .../problems` (litery A, B, C… wg kolejności), zarządzanie
-zawodnikami, ogłoszenia, odpowiedzi na pytania, `GET .../leaderboard.csv`.
+Administration: contest CRUD, `PUT .../problems` (letters A, B, C… by order), participant
+management, announcements, answers to questions, `GET .../leaderboard.csv`.
 
-Trzy rzeczy pilnowane po stronie serwera:
+Three things the server enforces:
 
-- **Lista zadań jest ukryta przed startem.** Gdyby wyciekała, dałoby się przygotować przed
-  sygnałem. Admin widzi ją zawsze.
-- **Freeze.** Przez ostatnie `freezeMinutes` publiczna tablica pokazuje stan sprzed zamrożenia;
-  admin widzi prawdziwy. `PATCH` z `unfrozen: true` odmraża wyniki po zawodach.
-- **Submit tylko w oknie konkursu i tylko dla zapisanych.** Poza oknem `409` z informacją,
-  czy konkurs jeszcze nie ruszył, czy już się skończył.
+- **The problem list is hidden before the start.** If it leaked, one could prepare before the
+  signal. Admins always see it.
+- **The freeze.** During the last `freezeMinutes` the public scoreboard shows the pre-freeze
+  state; an admin sees the real one. `PATCH` with `unfrozen: true` releases the results after the
+  contest.
+- **Submissions only inside the contest window and only from registered contestants.** Outside the
+  window, a `409` saying whether the contest has not started or is already over.
 
-Live leaderboard przelicza ranking **raz na konkurs i wariant widoku**, nie raz na klienta —
-przy stu osobach wpatrzonych w tablicę to jedno zapytanie na cykl zamiast stu. Wysyła tylko
-wtedy, gdy wynik się zmienił.
+The live leaderboard recomputes the ranking **once per contest and view variant**, not once per
+client — with a hundred people watching the board that is one query per cycle instead of a
+hundred. It sends only when the result actually changed.
 
 ## API
 
@@ -213,9 +222,9 @@ wtedy, gdy wynik się zmienił.
 }
 ```
 
-Języki: `c`, `cpp`, `clang`, `clangpp`, `python`.
+Languages: `c`, `cpp`, `clang`, `clangpp`, `python`.
 
-Gdy podasz `expectedStdout`, API porównuje znormalizowany stdout → `AC` / `WA`.
+When `expectedStdout` is given, the API compares the normalised stdout → `AC` / `WA`.
 
 ### `POST /api/run-samples`
 
@@ -227,84 +236,85 @@ Gdy podasz `expectedStdout`, API porównuje znormalizowany stdout → `AC` / `WA
 }
 ```
 
-Odpalane są sample testcases z `data/problems/*.json`.
+Runs the problem's sample test cases.
 
 ### `GET /api/problems` / `GET /api/problems/:slug`
 
-Lista i szczegóły zadań seedowanych w `data/problems/`.
+The list and the details of published problems. Hidden tests never appear in either.
 
 ## Troubleshooting (macOS / SE Internal Error)
 
-Jeśli Run Code zwraca **SE** / `Internal Error` i message w stylu
-`No such file or directory @ rb_sysopen - /box/...`, to Isolate (sandbox Judge0)
-nie działa — zwykle bo Docker Desktop używa **cgroup v2**, a Judge0 1.13.x
-wymaga **cgroup v1**.
+If Run Code returns **SE** / `Internal Error` with a message along the lines of
+`No such file or directory @ rb_sysopen - /box/...`, then Isolate (the Judge0 sandbox) is not
+working — usually because Docker Desktop uses **cgroup v2** while Judge0 1.13.x requires
+**cgroup v1**.
 
-Naprawa:
+The fix:
 
 ```bash
 ./scripts/fix-macos-cgroup.sh
-# potem: Quit Docker Desktop → uruchom ponownie →
+# then: Quit Docker Desktop → start it again →
 docker compose down && docker compose up -d
 npm run smoke:judge0
 ```
 
-Ręcznie: w `~/Library/Group Containers/group.com.docker/settings-store.json`
-ustaw `"DeprecatedCgroupv1": true`, zrestartuj Docker Desktop, przebuduj stack.
+By hand: in `~/Library/Group Containers/group.com.docker/settings-store.json` set
+`"DeprecatedCgroupv1": true`, restart Docker Desktop and rebuild the stack.
 
-## Bezpieczeństwo
+## Security
 
-- Judge0 działa w trybie privileged — trzymaj go tylko w wewnętrznej sieci compose.
-- Rate limit na `/api/run` i `/api/run-samples`.
-- Limity rozmiaru kodu / stdin w `@sfera/shared`.
-- Image pinned do `judge0/judge0:1.13.1` (łatki sandbox escape).
+- Judge0 runs privileged — keep it inside the internal compose network only.
+- Rate limits on `/api/run` and `/api/run-samples`.
+- Source and stdin size limits in `@sfera/shared`.
+- The image is pinned to `judge0/judge0:1.13.1` (sandbox escape patches).
 
-## Testy
+## Tests
 
 ```bash
-npm run typecheck          # tsc na źródłach i testach
-npm test                   # jednostkowe, bez Dockera
-npm run test:integration   # Testcontainers — wymaga działającego Dockera
+npm run typecheck          # tsc over sources and tests
+npm test                   # unit and component tests, no Docker needed
+npm run test:integration   # Testcontainers — requires a running Docker
 ```
 
-Vitest, bez potrzeby wcześniejszego builda — testy importują `@sfera/shared` i `@sfera/db` prosto
-ze źródeł (aliasy w configach). Podział:
+Vitest, with no build step first — the tests import `@sfera/shared` and `@sfera/db` straight from
+source (aliases in the configs). The split:
 
-- **jednostkowe** (`*.test.ts`) — czysta logika bez I/O: comparer, mapowanie werdyktów.
-- **integracyjne** (`*.integration.test.ts`) — prawdziwy Postgres w kontenerze. Migracje, więzy
-  integralności, seed oraz endpointy przez `app.inject()` z bazą wstrzykniętą do `buildApp()`.
-  Poza `npm test`, bo wymagają Dockera.
+- **unit and component** (`*.test.ts`, `*.test.tsx`) — pure logic and React components without
+  I/O: the comparer, verdict mapping, ICPC scoring, token contrast, the test strip.
+- **integration** (`*.integration.test.ts`) — a real Postgres in a container. Migrations,
+  integrity constraints, seeding, and the endpoints through `app.inject()` with the database
+  injected into `buildApp()`. Kept out of `npm test`, because they need Docker.
 
-Testcontainers ma wyłączonego Ryuka (`TESTCONTAINERS_RYUK_DISABLED`) — to kontener-sprzątacz
-ściągany z Docker Huba przy każdym starcie, który bez dostępu do Huba blokuje cały zestaw.
-Kontenery zamykamy jawnie w `afterAll`, więc jedyne, co tracimy, to sprzątanie po twardym
-ubiciu procesu testów. Jeśli takie zostaną:
+Testcontainers runs with Ryuk disabled (`TESTCONTAINERS_RYUK_DISABLED`) — it is the reaper
+container pulled from Docker Hub on every start, and without Hub access it blocks the whole suite.
+We close containers explicitly in `afterAll`, so the only thing lost is cleanup after the test
+process is hard-killed. If any are left behind:
 
 ```bash
 docker ps -aq --filter 'label=org.testcontainers=true' | xargs -r docker rm -f
 ```
 
-Testy wymagają lokalnego obrazu `postgres:16.2` (`docker pull postgres:16.2`).
+The tests need a local `postgres:16.2` image (`docker pull postgres:16.2`).
 
-## Struktura
+## Layout
 
 ```
-apps/worker            proces oceniający submity z kolejki
-apps/api               Fastify backend
-  src/app.ts             buildApp() — instancja Fastify bez listen
-  src/server.ts          bootstrap + listen
-  src/config.ts          env walidowany zodem
-  src/judge0/client.ts   klient Judge0 i mapowanie werdyktów
-  src/modules/problems   repository → service → routes
-  src/modules/runs       service → routes
-apps/web               Next.js playground
-packages/db            schemat Drizzle, klient, migracje
-packages/judge0        klient Judge0 i mapowanie werdyktów
-packages/queue         JudgeQueue (BullMQ) i szyna postępu
-packages/shared        typy, języki, comparer, scoring ICPC
-data/problems          seed zadań (JSON)
+apps/worker            the process that judges submissions off the queue
+apps/api               the Fastify backend
+  src/app.ts             buildApp() — a Fastify instance without listen
+  src/server.ts          bootstrap and listen
+  src/config.ts          the environment, validated with zod
+  src/modules/*          repository → service → routes
+apps/web               the Next.js frontend
+  src/app/               App Router: (auth) and (app) route groups
+  src/components/ui      the component library
+  src/components/domain  problem list, workspace, test strip, verdict
+  src/components/editor  the editor facade: Monaco and CodeMirror
+  src/lib/               API client, session, motion, formatting
+packages/db            the Drizzle schema, client and migrations
+packages/judge0        the Judge0 client and verdict mapping
+packages/queue         JudgeQueue (BullMQ) and the progress bus
+packages/shared        types, languages, the comparer, ICPC scoring
+data/problems          problem seeds (JSON)
 docker/judge0          judge0.conf
 ```
-
-Więcej kontekstu: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-Plan rozwoju: [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -6,10 +6,10 @@ export interface ContestWindow {
 }
 
 /**
- * Faza konkursu wyliczana z zegara, nie trzymana w bazie.
+ * The contest phase, derived from the clock rather than stored.
  *
- * Kolumna ze statusem wymagałaby zadania cyklicznego i potrafiłaby się rozjechać
- * z rzeczywistością; tu jedynym źródłem prawdy jest czas serwera.
+ * A status column would need a scheduled job and could drift out of step with
+ * reality; here the only source of truth is the server's clock.
  */
 export function contestPhase(
   window: ContestWindow,
@@ -28,7 +28,7 @@ export function contestEndsAt(window: ContestWindow): Date {
   return new Date(window.startsAt.getTime() + window.durationMinutes * 60_000);
 }
 
-/** Sekundy do końca konkursu; 0 po zakończeniu. Zegar liczy serwer. */
+/** Seconds left in the contest; 0 once it is over. The server keeps time. */
 export function secondsRemaining(
   window: ContestWindow,
   now: Date = new Date(),
@@ -37,7 +37,7 @@ export function secondsRemaining(
   return Math.max(0, Math.floor(left / 1000));
 }
 
-/** Sekundy do startu; 0 gdy konkurs już ruszył. */
+/** Seconds until the start; 0 once the contest is under way. */
 export function secondsUntilStart(
   window: ContestWindow,
   now: Date = new Date(),

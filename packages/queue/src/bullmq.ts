@@ -11,8 +11,8 @@ export const JUDGE_QUEUE_NAME = "judge";
 
 export function createRedis(url: string): Redis {
   return new Redis(url, {
-    // Wymagane przez BullMQ — bez tego workery gubią zadania przy chwilowej
-    // niedostępności Redisa zamiast czekać.
+    // Required by BullMQ — without it workers drop jobs during a brief Redis
+    // outage instead of waiting.
     maxRetriesPerRequest: null,
   });
 }
@@ -27,8 +27,8 @@ export function createBullJudgeQueue(
   const queue = new Queue<JudgeJob>(JUDGE_QUEUE_NAME, {
     connection: options.connection,
     defaultJobOptions: {
-      // Ponawiamy tylko awarie infrastruktury — decyzję o tym, czy błąd nadaje
-      // się do retry, podejmuje worker, rzucając odpowiedni typ wyjątku.
+      // Only infrastructure failures are retried — the worker decides whether
+      // an error is retryable by throwing the matching exception type.
       attempts: 3,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: { count: 1000 },
@@ -39,7 +39,7 @@ export function createBullJudgeQueue(
   return {
     async enqueue(job, priority = "submission") {
       await queue.add(JUDGE_QUEUE_NAME, job, {
-        // Deduplikacja: ten sam submit nie może trafić do kolejki dwa razy.
+        // Deduplication: the same submission must not enter the queue twice.
         jobId: job.submissionId,
         priority: JUDGE_PRIORITY[priority as JudgePriority],
       });

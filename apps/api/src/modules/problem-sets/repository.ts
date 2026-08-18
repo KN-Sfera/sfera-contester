@@ -13,15 +13,15 @@ export interface ProblemSetSummary {
   title: string;
   description: string;
   problemCount: number;
-  /** Ile zadań z zestawu użytkownik ma zaliczone. `null` dla niezalogowanych. */
+  /** How many problems in the set the user has solved. `null` when signed out. */
   solvedCount: number | null;
 }
 
 /**
- * Zestawy widoczne publicznie, z postępem użytkownika.
+ * Publicly visible sets, with the user's progress.
  *
- * Liczy tylko zadania **opublikowane** — szkic w zestawie nie może podbijać
- * mianownika czegoś, czego zawodnik nie widzi.
+ * It counts **published** problems only — a draft inside a set must not inflate
+ * the denominator with something a contestant cannot see.
  */
 export async function listPublicProblemSets(
   db: Database,
@@ -232,23 +232,24 @@ export async function deleteProblemSet(
 
 export class DuplicateProblemError extends Error {
   constructor(readonly slugs: string[]) {
-    super(`Zadania powtarzają się w zestawie: ${slugs.join(", ")}`);
+    super(`Problems repeat within the set: ${slugs.join(", ")}`);
     this.name = "DuplicateProblemError";
   }
 }
 
 export class UnknownProblemError extends Error {
   constructor(readonly slugs: string[]) {
-    super(`Nie ma zadań: ${slugs.join(", ")}`);
+    super(`No such problems: ${slugs.join(", ")}`);
     this.name = "UnknownProblemError";
   }
 }
 
 /**
- * Ustawia zawartość zestawu wg listy slugów. Pozycje wynikają z kolejności.
+ * Sets a set's contents from a list of slugs. Positions follow the order.
  *
- * Wymiana idzie w transakcji z usunięciem starych pozycji — inaczej unikalny
- * indeks na `(set_id, position)` wywracałby się przy zmianie kolejności.
+ * The swap runs in a transaction together with deleting the old rows —
+ * otherwise the unique index on `(set_id, position)` would blow up on a
+ * reorder.
  */
 export async function setProblemSetItems(
   db: Database,

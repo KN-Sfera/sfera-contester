@@ -10,14 +10,14 @@ import {
 
 export class ProblemNotFoundError extends Error {
   constructor(slug: string) {
-    super(`Nie ma zadania ${slug}`);
+    super(`No such problem: ${slug}`);
     this.name = "ProblemNotFoundError";
   }
 }
 
 export class NoTestCasesError extends Error {
   constructor(slug: string) {
-    super(`Zadanie ${slug} nie ma żadnych testów`);
+    super(`Problem ${slug} has no tests`);
     this.name = "NoTestCasesError";
   }
 }
@@ -26,7 +26,7 @@ export interface ReferenceCaseResult {
   ordinal: number;
   verdict: Verdict;
   isSample: boolean;
-  /** Wypełniane tylko dla testów, które nie przeszły — admin musi wiedzieć, co poprawić. */
+  /** Filled in only for failing tests — an admin has to know what to fix. */
   expectedOutput?: string;
   actualOutput?: string;
   stderr?: string;
@@ -39,10 +39,10 @@ export interface ReferenceRunResult {
 }
 
 /**
- * Przepuszcza wzorcowe rozwiązanie przez **wszystkie** testy zadania.
+ * Runs the reference solution through **every** test of a problem.
  *
- * W przeciwieństwie do oceniania submitów nie przerywa na pierwszym błędzie —
- * admin chce zobaczyć komplet problemów naraz, a nie poprawiać je po jednym.
+ * Unlike submission judging it does not stop at the first failure — an admin
+ * wants to see every problem at once, not fix them one at a time.
  */
 export async function runReferenceSolution(
   db: Database,
@@ -89,17 +89,18 @@ export async function runReferenceSolution(
 
 export class ReferenceSolutionFailedError extends Error {
   constructor(readonly run: ReferenceRunResult) {
-    super("Wzorcowe rozwiązanie nie przechodzi wszystkich testów");
+    super("The reference solution does not pass every test");
     this.name = "ReferenceSolutionFailedError";
   }
 }
 
 /**
- * Publikuje zadanie, ale dopiero po sprawdzeniu wzorcówki.
+ * Publishes a problem, but only after checking the reference solution.
  *
- * Walidacja jest robiona **w momencie publikacji**, a nie zapamiętywana jako
- * flaga w bazie. Zapamiętana zdezaktualizowałaby się po każdej edycji testów,
- * a najczęstszy błąd przy zakładaniu zadania to właśnie złe `expected_output`.
+ * Validation happens **at publish time** rather than being stored as a flag in
+ * the database. A stored flag would go stale after every test edit, and the
+ * most common mistake when authoring a problem is exactly a wrong
+ * `expected_output`.
  */
 export async function publishProblem(
   db: Database,
