@@ -24,14 +24,21 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "smoke:judge0": "bash scripts/smoke-judge0.sh",
-    "smoke:e2e": "bash scripts/smoke-e2e.sh"
+    "smoke:e2e": "bash scripts/smoke-e2e.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
     "sharp@0.34.5": true
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@testcontainers/postgresql": "^12.1.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
+    "jsdom": "^30.0.1",
     "vitest": "^3.2.7"
   }
 }
